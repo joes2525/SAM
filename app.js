@@ -272,7 +272,7 @@ async function property(id) {
   const {data: p, error} = await sb.from('properties').select('*, alarms(*), tenants(*), inspections(*, profiles(name)), teams(name)').eq('id', id).single(); fail(error);
   p.alarms.sort((a, b) => a.location.localeCompare(b.location));
   p.inspections.sort((a, b) => b.inspection_date.localeCompare(a.inspection_date));
-  const d = nextDue(p), est = p.bedrooms != null && p.storeys != null ? +p.bedrooms + +p.storeys + 1 : null;
+  const d = nextDue(p), est = p.bedrooms != null && p.storeys != null ? Math.max(1, +p.bedrooms + +p.storeys) : null, estR = est && `${est}–${est + 1}`;
   window._p = p;
   const urls = await photoUrls([p.photo_path, ...p.alarms.map(a => a.photo_path)]); window._urls = urls;
   $('#main').innerHTML = `<div class="phead">${urls[p.photo_path] ? `<img src="${urls[p.photo_path]}" alt="Property photo">` : PHOTO_ICON}
@@ -287,8 +287,8 @@ async function property(id) {
       <div><div class="muted small">Team</div>${esc(p.teams?.name || 'Just me')}</div></div>
       ${p.access_notes ? `<p class="pre small"><b>Access:</b> ${esc(p.access_notes)}</p>` : ''}</div>
 
-    <div class="spread"><h2>Smoke alarms (${p.alarms.length}${est ? ' of about ' + est + ' needed' : ''})</h2></div>
-    ${est && p.alarms.length < est ? `<p class="pill warn">This property may need at least ${est} alarms (bedrooms + storeys + 1). This is an estimate only.</p>` : ''}
+    <div class="spread"><h2>Smoke alarms (${p.alarms.length}${est ? ' of about ' + estR + ' needed' : ''})</h2></div>
+    ${est && p.alarms.length < est ? `<p class="pill warn">This property may need ${estR} alarms (one in each bedroom, plus one on each storey for the hallway or the way out). This is an estimate only.</p>` : ''}
     ${p.alarms.length ? `<table><tr><th>Location</th><th>Type / power</th><th>Expires</th><th>SAM Check*</th><th></th></tr>${p.alarms.map(a => `<tr data-alarm="${a.id}">
       <td><div class="row" style="flex-wrap:nowrap">${urls[a.photo_path] ? `<a href="${urls[a.photo_path]}" target="_blank"><img class="thumb" src="${urls[a.photo_path]}" alt=""></a>` : ''}<div><b>${esc(a.location)}</b><div class="small muted">${esc([a.brand, a.model].filter(Boolean).join(' '))}</div></div></div></td>
       <td>${esc(a.alarm_type || '?')}<div class="small muted">${esc(a.power_source || '')}</div></td>
