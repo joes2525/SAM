@@ -192,3 +192,16 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em}
 .side{width:272px}
 @media(max-width:820px){.sidelogo{width:200px}}
 @media(max-width:640px){.toplogo{height:56px}}
+/* photos + gallery */
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.gcard{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;text-decoration:none;color:var(--text);display:flex;flex-direction:column;transition:transform .08s,box-shadow .15s}
+.gcard:hover{box-shadow:0 4px 14px rgba(16,42,67,.12)}.gcard:active{transform:scale(.98)}
+.gcard img,.gcard .nophoto{width:100%;aspect-ratio:3/2;object-fit:cover;display:block}
+.nophoto{background:#e9eef6;display:flex;align-items:center;justify-content:center;font-size:44px;color:#9fb0c8}
+.gbody{padding:12px 14px 14px}
+.phead{position:relative;margin:-30px -34px 18px;max-height:280px;overflow:hidden;background:#e9eef6}
+.phead img{width:100%;max-height:280px;object-fit:cover;display:block}.phead .nophoto{height:120px;font-size:40px}
+.photobtn{position:absolute;right:14px;bottom:14px}
+.thumb{width:44px;height:44px;object-fit:cover;border-radius:8px;flex:none}
+@media(max-width:820px){.phead{margin:-20px -14px 14px}}
+@media(max-width:640px){.gallery{grid-template-columns:1fr 1fr;gap:10px}.gbody{padding:8px 10px 10px}.gbody b{font-size:14px}}

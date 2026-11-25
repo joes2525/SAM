@@ -24,6 +24,24 @@ document.addEventListener('submit', e => {
 });
 const ROLES = {property_manager:'Property manager', landlord:'Landlord / self-managing owner', electrician:'Electrician', tenant:'Tenant'};
 
+// ---------- photos ----------
+async function photoUrls(paths) {
+  paths = [...new Set(paths.filter(Boolean))]; if (!paths.length) return {};
+  const {data} = await sb.storage.from('photos').createSignedUrls(paths, 3600);
+  return Object.fromEntries((data || []).filter(x => x.signedUrl).map(x => [x.path, x.signedUrl]));
+}
+// Shrink to max 1600px JPEG before uploading (phone photos are huge)
+async function shrink(file) {
+  const img = await createImageBitmap(file); const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+  const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return new Promise(r => c.toBlob(r, 'image/jpeg', 0.82));
+}
+async function uploadPhoto(file, path) {
+  const {error} = await sb.storage.from('photos').upload(path, await shrink(file), {upsert: true, contentType: 'image/jpeg'}); fail(error); return path;
+}
+const PHOTO_ICON = '<div class="nophoto">🏠</div>';
+
 // ---------- alarm rules (Queensland) ----------
 const TYPES = ['Photoelectric', 'Ionisation', 'Heat', 'Unknown'];
 const POWER = ['240V hardwired with battery backup', '240V hardwired', '10-year sealed lithium battery', '9V replaceable battery', 'Unknown'];
@@ -192,13 +210,29 @@ function propTable(rows) {
 
 // ---------- properties ----------
 async function myTeams() { const {data} = await sb.from('teams').select('id,name').in('id', (await sb.from('team_members').select('team_id').eq('user_id', me.id)).data.map(r => r.team_id)); return data || []; }
+function viewPref(v) { try { if (v) localStorage.setItem('samView', v); return localStorage.getItem('samView') || 'gallery'; } catch (e) { return v || 'gallery'; } }
+function propGallery(rows, urls) {
+  return `<div class="gallery">${rows.map(({p, d}) => {
+    const st = p.alarms.map(a => alarmIssues(a).status);
+    return `<a class="gcard" href="#/property/${p.id}">${urls[p.photo_path] ? `<img src="${urls[p.photo_path]}" alt="" loading="lazy">` : PHOTO_ICON}
+      <div class="gbody"><b>${esc(p.street)}</b><div class="small muted">${esc([p.suburb, p.postcode].filter(Boolean).join(' '))}</div>
+      <div class="row" style="margin-top:8px;gap:6px">${duePill(d)} ${st.includes('bad') ? '<span class="pill bad">alarm problem</span>' : st.includes('warn') ? '<span class="pill warn">info missing</span>' : p.alarms.length ? `<span class="pill ok">${p.alarms.length} alarms OK</span>` : '<span class="pill">no alarms</span>'}</div></div></a>`;
+  }).join('')}</div>`;
+}
 async function properties() {
-  const props = await loadProperties();
+  const props = await loadProperties(); const urls = await photoUrls(props.map(p => p.photo_path));
+  const draw = () => { const q = ($('#search')?.value || '').toLowerCase(), v = viewPref();
+    const rows = props.filter(p => addr(p).toLowerCase().includes(q)).map(p => ({p, d: nextDue(p)}));
+    $('#plist').innerHTML = !props.length ? '<p class="muted">No properties yet. Add one, or join your team from the Teams page.</p>'
+      : v === 'gallery' ? propGallery(rows, urls) : propTable(rows);
+    document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('g', b.dataset.view !== v)); };
   $('#main').innerHTML = `<div class="spread"><h1>Properties</h1><button class="btn o" onclick="propertyForm()">Add property</button></div>
-    <input id="search" placeholder="Search by address…" style="max-width:360px;margin-bottom:12px">
-    <div id="plist">${props.length ? propTable(props.map(p => ({p, d: nextDue(p)}))) : '<p class="muted">No properties yet. Add one, or join your team from the Teams page.</p>'}</div>`;
-  $('#search').oninput = e => { const q = e.target.value.toLowerCase();
-    $('#plist').innerHTML = propTable(props.filter(p => addr(p).toLowerCase().includes(q)).map(p => ({p, d: nextDue(p)}))); };
+    <div class="spread" style="margin-bottom:12px"><input id="search" placeholder="Search by address…" style="max-width:360px">
+    <div class="row"><button class="btn s" data-view="gallery">▦ Gallery</button><button class="btn s" data-view="list">☰ List</button></div></div>
+    <div id="plist"></div>`;
+  $('#search').oninput = draw;
+  document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { viewPref(b.dataset.view); draw(); });
+  draw();
 }
 async function propertyForm(p = {}) {
   const teams = await myTeams();
@@ -226,7 +260,10 @@ async function property(id) {
   p.inspections.sort((a, b) => b.inspection_date.localeCompare(a.inspection_date));
   const d = nextDue(p), est = p.bedrooms != null && p.storeys != null ? +p.bedrooms + +p.storeys + 1 : null;
   window._p = p;
-  $('#main').innerHTML = `<div class="spread"><h1>${esc(addr(p))}</h1>
+  const urls = await photoUrls([p.photo_path, ...p.alarms.map(a => a.photo_path)]); window._urls = urls;
+  $('#main').innerHTML = `<div class="phead">${urls[p.photo_path] ? `<img src="${urls[p.photo_path]}" alt="Property photo">` : PHOTO_ICON}
+      <label class="btn s g photobtn">📷 ${p.photo_path ? 'Change photo' : 'Add photo'}<input type="file" accept="image/*" hidden onchange="propertyPhoto(this)"></label></div>
+    <div class="spread"><h1>${esc(addr(p))}</h1>
       <div class="row">${me.role !== 'tenant' ? `<a class="btn o" href="#/check/${p.id}">Log a check</a>` : ''}<button class="btn g" onclick="propertyForm(window._p)">Edit</button></div></div>
     <div class="box"><div class="row" style="gap:28px">
       <div><div class="muted small">Next check</div>${duePill(d)}<div class="small muted">${esc(d.why)}</div></div>
@@ -239,7 +276,7 @@ async function property(id) {
     <div class="spread"><h2>Smoke alarms (${p.alarms.length}${est ? ' of about ' + est + ' needed' : ''})</h2></div>
     ${est && p.alarms.length < est ? `<p class="pill warn">This property may need at least ${est} alarms (bedrooms + storeys + 1). This is an estimate only.</p>` : ''}
     ${p.alarms.length ? `<table><tr><th>Location</th><th>Type / power</th><th>Expires</th><th>SAM Check*</th><th></th></tr>${p.alarms.map(a => `<tr>
-      <td><b>${esc(a.location)}</b><div class="small muted">${esc([a.brand, a.model].filter(Boolean).join(' '))}</div></td>
+      <td><div class="row" style="flex-wrap:nowrap">${urls[a.photo_path] ? `<a href="${urls[a.photo_path]}" target="_blank"><img class="thumb" src="${urls[a.photo_path]}" alt=""></a>` : ''}<div><b>${esc(a.location)}</b><div class="small muted">${esc([a.brand, a.model].filter(Boolean).join(' '))}</div></div></div></td>
       <td>${esc(a.alarm_type || '?')}<div class="small muted">${esc(a.power_source || '')}</div></td>
       <td>${fmt(a.expiry_date)}</td><td>${alarmPill(a)}</td>
       <td><button class="btn s g" onclick="alarmForm('${a.id}')">Edit</button></td></tr>`).join('')}</table>${SAM_CHECK_NOTE}` : '<p class="muted">No alarms added yet.</p>'}
@@ -259,6 +296,11 @@ async function property(id) {
       <td>${esc(i.profiles?.name || '')}<div class="small muted">${i.check_type === 'licensed' ? 'Electrician' : 'Manager check'}</div></td><td class="small pre">${esc(i.notes || '')}</td></tr>`).join('')}</table>` : '<p class="muted">No checks recorded yet.</p>'}
     <p style="margin-top:30px"><button class="btn s r" onclick="deleteProperty()">Delete property</button></p>`;
 }
+async function propertyPhoto(input) {
+  const f = input.files[0]; if (!f) return; toast('Uploading photo…');
+  const path = await uploadPhoto(f, `${window._p.id}/property.jpg`);
+  const {error} = await sb.from('properties').update({photo_path: path}).eq('id', window._p.id); fail(error); toast('Photo saved.'); route();
+}
 async function deleteProperty() {
   if (!confirm('Delete this property, its alarms, tenants and check history? This can\'t be undone.')) return;
   const {error} = await sb.from('properties').delete().eq('id', window._p.id); fail(error); toast('Property deleted.'); location.hash = '#/properties';
@@ -269,7 +311,7 @@ function copyAlarm() {
   alarmForm(null, last);
 }
 function alarmForm(id, copyFrom) {
-  const a = copyFrom ? {...copyFrom, id: null, location: '', manufacture_year: null, manufacture_month: null} : window._p.alarms.find(x => x.id === id) || {}, years = []; for (let y = new Date().getFullYear(); y >= 2005; y--) years.push(String(y));
+  const a = copyFrom ? {...copyFrom, id: null, location: '', manufacture_year: null, manufacture_month: null, photo_path: null} : window._p.alarms.find(x => x.id === id) || {}, years = []; for (let y = new Date().getFullYear(); y >= 2005; y--) years.push(String(y));
   $('#aform').innerHTML = `<div class="box">${copyFrom ? `<p class="small muted">Copied from <b>${esc(copyFrom.location)}</b>. Enter where this alarm is and its manufacture date (printed on the alarm), then check the other details.</p>` : ''}<form id="alf" class="f">
     <label>Location<select name="loc_pick" required onchange="document.getElementById('locother').classList.toggle('hidden', this.value !== 'Other'); document.querySelector('[name=location_other]').required = this.value === 'Other'">
       <option value="">Choose…</option>${opts(LOCATIONS, LOCATIONS.includes(a.location) ? a.location : (a.location ? 'Other' : ''))}<option ${a.location && !LOCATIONS.includes(a.location) ? 'selected' : ''}>Other</option></select></label>
@@ -281,12 +323,16 @@ function alarmForm(id, copyFrom) {
     <label>Manufacture year${copyFrom ? ' (required)' : ''}<select name="manufacture_year" ${copyFrom ? 'required' : ''}><option></option>${opts(years, String(a.manufacture_year ?? ''))}</select></label>
     <label>Manufacture month (blank if not shown)<select name="manufacture_month"><option></option>${[...Array(12)].map((_, i) => `<option value="${i + 1}" ${a.manufacture_month === i + 1 ? 'selected' : ''}>${new Date(2000, i).toLocaleString('en-AU', {month: 'long'})}</option>`).join('')}</select></label>
     <label>Brand<input name="brand" value="${esc(a.brand)}"></label><label>Model<input name="model" value="${esc(a.model)}"></label>
+    <label>Photo of the alarm${a.id && a.photo_path ? ' (choose a new one to replace it)' : ''}<input type="file" name="photo" accept="image/*"></label>
     <div class="wide row"><button class="btn o">Save alarm</button><button type="button" class="btn g" onclick="this.closest('.box').remove()">Cancel</button>
     ${a.id ? `<button type="button" class="btn r" onclick="delRow('alarms','${a.id}')">Delete</button>` : ''}</div></form></div>`;
   $('#alf').onsubmit = async e => {
     e.preventDefault(); const d = formData(e.target); d.property_id = window._p.id;
     d.location = d.loc_pick === 'Other' ? d.location_other : d.loc_pick; delete d.loc_pick; delete d.location_other;
-    const {error} = a.id ? await sb.from('alarms').update(d).eq('id', a.id) : await sb.from('alarms').insert(d); fail(error); toast('Alarm saved.'); route();
+    const file = e.target.photo.files[0]; delete d.photo; if (copyFrom) delete d.photo_path;
+    const {data: saved, error} = a.id ? await sb.from('alarms').update(d).eq('id', a.id).select().single() : await sb.from('alarms').insert(d).select().single(); fail(error);
+    if (file) { const path = await uploadPhoto(file, `${window._p.id}/alarm-${saved.id}.jpg`); await sb.from('alarms').update({photo_path: path}).eq('id', saved.id); }
+    toast('Alarm saved.'); route();
   };
   $('#aform').scrollIntoView({behavior: 'smooth'});
 }
@@ -494,6 +540,13 @@ async function help() {
     <h2>Questions</h2>${f.map(x => `<details><summary>${esc(x.question)}</summary><p class="pre">${esc(x.answer)}</p></details>`).join('')}`;
 }
 
+async function runImport(b) {
+  b.classList.add('busy'); b.disabled = true; $('#importres').textContent = 'Importing… this can take a minute.';
+  const {data, error} = await sb.functions.invoke('import-airtable', {body: {}});
+  let msg = data; if (error) { try { msg = await error.context.json(); } catch (e) { msg = {error: error.message}; } }
+  $('#importres').textContent = JSON.stringify(msg, null, 2); unbusy();
+}
+
 // ---------- profile ----------
 async function profile() {
   $('#main').innerHTML = `<h1>Profile</h1><div class="box"><form id="prf" class="f">
@@ -501,7 +554,9 @@ async function profile() {
     <label>Company<input name="company" value="${esc(me.company)}"></label>
     ${me.role === 'electrician' ? `<label>Licence number<input name="licence_no" value="${esc(me.licence_no)}"></label>` : ''}
     <label>Email<input disabled value="${esc(me.email)}"></label><label>Account type<input disabled value="${esc(ROLES[me.role] || me.role)}"></label>
-    <div class="wide row"><button class="btn o">Save</button><button type="button" class="btn g" onclick="newPassword()">Change password</button></div></form></div>`;
+    <div class="wide row"><button class="btn o">Save</button><button type="button" class="btn g" onclick="newPassword()">Change password</button></div></form></div>
+    ${me.email.toLowerCase() === 'joes25@gmail.com' ? `<div class="box"><b>Admin: import test data</b><p class="small muted">Copies the SAM Register properties, alarms, tenants, checks and photos from Airtable into your account. Safe to run again.</p>
+      <button class="btn" onclick="runImport(this)">Import from Airtable</button><pre id="importres" class="small"></pre></div>` : ''}`;
   $('#prf').onsubmit = async e => {
     e.preventDefault(); const d = formData(e.target);
     const {data, error} = await sb.from('profiles').update(d).eq('id', me.id).select().single(); fail(error); me = data; toast('Saved.');
