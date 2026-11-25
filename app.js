@@ -328,7 +328,7 @@ async function check(id) {
   const ref = me.role === 'electrician' ? null : (await sb.rpc('get_refresher')).data?.[0];
   const page = $('#main');
   page.innerHTML = `<h1>${practice ? 'Practice check' : 'Log a check'}</h1><p class="muted">${esc(addr(p))}</p>
-    ${practice ? '<p class="pill warn">Practice only: nothing you enter here is saved.</p>' : ''}<div id="step"></div>`;
+    ${practice ? PRACTICE_BANNER : ''}<div id="step"></div>`;
   const form = (refResult) => {
     const flags = p.alarms.map(a => ({a, r: alarmIssues(a)})).filter(x => x.r.status !== 'ok');
     $('#step').innerHTML = `<div class="box"><b>Alarms on record (${p.alarms.length})</b>
@@ -342,7 +342,7 @@ async function check(id) {
         <label>Notes<textarea name="notes" placeholder="What you found, anything fixed, anything the owner needs to arrange"></textarea></label></div>
       <div class="q"><label class="opt"><input type="checkbox" required> I declare I carried out this check in person on the date above and the answers are true.</label>
         <label class="opt"><input type="checkbox" required> I understand final compliance decisions rest with the agency/owner, and an electrician should be consulted if unsure.</label></div>
-      <button class="btn o">Submit check</button></form>`;
+      ${practice ? PRACTICE_BANNER : ''}<button class="btn o">${practice ? 'Finish practice check' : 'Submit check'}</button></form>`;
     $('#cf').onsubmit = async e => {
       e.preventDefault(); const d = formData(e.target);
       const override = d.assessment === 'Compliant' && flags.length > 0;
@@ -371,6 +371,7 @@ async function check(id) {
   };
 }
 
+const PRACTICE_BANNER = `<div class="practice-banner"><b>🧪 PRACTICE ONLY</b> This is for practising and testing. Nothing you enter here is saved and it does not count as a smoke alarm check.</div>`;
 // Practice check: give feedback instead of saving
 function practiceResult(p, d, flags) {
   const notes = [];
@@ -385,7 +386,7 @@ function practiceResult(p, d, flags) {
     : d.assessment === 'Not compliant' && !problems
       ? '<p class="pill warn">You chose Not compliant, but nothing was flagged. In a real check, explain why in the notes.</p>'
       : '<p class="pill ok">Your overall assessment matches your answers.</p>';
-  $('#step').innerHTML = `<div class="box"><h2 style="margin-top:0">Practice result</h2>${verdict}
+  $('#step').innerHTML = `${PRACTICE_BANNER}<div class="box"><h2 style="margin-top:0">Practice result</h2>${verdict}
     ${problems ? `<ul>${notes.map(n => `<li>${n}</li>`).join('')}</ul>` : '<p>No problems found. In a real check you would submit this as Compliant.</p>'}
     <p class="small muted">Nothing was saved. When you've passed SAM Academy, checks you submit are saved to the property's history.</p>
     <div class="row"><button class="btn" onclick="window._practice = true; check('${p.id}')">Practise again</button><a class="btn g" href="#/property/${p.id}">Back to the property</a></div></div>`;
