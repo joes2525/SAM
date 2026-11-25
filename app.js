@@ -150,8 +150,8 @@ async function newPassword() {
 
 // ---------- navigation ----------
 function navItems() {
-  if (me.role === 'tenant') return [['home', 'Home'], ['help', 'Help'], ['profile', 'Profile']];
-  const n = [['home', 'Home'], ['properties', 'Properties'], ['teams', 'Teams']];
+  if (me.role === 'tenant') return [['home', 'My home'], ['lookup', 'Look up'], ['help', 'Help'], ['profile', 'Profile']];
+  const n = [['home', 'Home'], ['properties', 'Properties'], ['lookup', 'Look up'], ['teams', 'Teams']];
   if (me.role !== 'electrician') n.push(['course', 'SAM Academy']);
   return n.concat([['help', 'Help'], ['profile', 'Profile']]);
 }
@@ -174,7 +174,7 @@ async function routeOnce() {
   const [page, id] = location.hash.replace(/^#\/?/, '').split('/');
   const p = page || 'home';
   $('#nav').innerHTML = navItems().map(([k, v]) => `<a href="#/${k}" class="${k === p || (p === 'property' && k === 'properties') || ((p === 'lesson' || p === 'quiz') && k === 'course') ? 'on' : ''}">${v}</a>`).join('');
-  const pages = {home, properties, property, check, course, quiz, teams, help, profile, lesson: n => lessonPage(n, '#main')};
+  const pages = {home, properties, property, check, course, quiz, teams, help, profile, lookup, lesson: n => lessonPage(n, '#main')};
   $('#main').innerHTML = '<p class="muted">Loading…</p>';
   try { await (pages[p] || home)(id); } catch (e) { console.error(e); $('#main').innerHTML = `<p>Something went wrong: ${esc(e.message)}</p>`; }
   window.scrollTo(0, 0);
@@ -190,7 +190,7 @@ async function home() {
   const hr = new Date().getHours();
   let h = `<h1>Good ${hr < 12 ? 'morning' : hr < 18 ? 'afternoon' : 'evening'}${me.name ? ', ' + esc(me.name.split(' ')[0]) : ''}</h1>`;
   if (me.role === 'tenant') {
-    $('#main').innerHTML = h + `<div class="box">Thanks for signing up. We'll send you reminders to test and clean your smoke alarms. Have a look at <a href="#/help">Help</a> for how to do it.</div>`; return;
+    $('#main').innerHTML = h + await tenantHome(); return;
   }
   const props = await loadProperties();
   const dues = props.map(p => ({p, d: nextDue(p)}));
@@ -258,6 +258,12 @@ async function propertyForm(p = {}) {
     <div class="wide row"><button class="btn o">Save</button><a class="btn g" href="#/${p.id ? 'property/' + p.id : 'properties'}">Cancel</a></div></form></div>`;
   $('#pf').onsubmit = async e => {
     e.preventDefault(); const d = formData(e.target);
+    if (!p.id) {
+      const {data: c, error: ce} = await sb.rpc('claim_property', {street: d.street, suburb: d.suburb || '', postcode: d.postcode || '', team: d.team_id || null}); fail(ce);
+      if (c?.status === 'yours') { toast('That address is already in your properties.'); location.hash = '#/property/' + c.id; return; }
+      if (c?.status === 'claimed') { toast('A tenant had already added this address. It is now in your properties.'); location.hash = '#/property/' + c.id; return; }
+      if (c?.status === 'taken') { unbusy(); $('#pf').insertAdjacentHTML('afterbegin', `<div class="wide box" style="border-color:#f5a35b"><b>This address is already in SAM</b>, managed by someone else. Ask them to add you to their team, or contact us through Help.${publicCard(c.info)}</div>`); window.scrollTo(0, 0); return; }
+    }
     const q = p.id ? sb.from('properties').update(d).eq('id', p.id).select().single() : sb.from('properties').insert(d).select().single();
     const {data, error} = await q; fail(error); toast('Saved.'); location.hash = '#/property/' + data.id; if (p.id) route();
   };
@@ -527,7 +533,7 @@ async function quiz(mid) {
 
 // ---------- teams ----------
 async function teams() {
-  const {data: mine} = await sb.from('team_members').select('team_id, teams(id,name)').eq('user_id', me.id);
+  const {data: mine} = await sb.from('team_members').select('team_id, teams(id,name,public_name)').eq('user_id', me.id);
   const ids = mine.map(m => m.team_id);
   const {data: members} = ids.length ? await sb.from('team_members').select('team_id, user_id, profiles(name,email)').in('team_id', ids) : {data: []};
   const {data: sent} = ids.length ? await sb.from('team_invites').select('*').in('team_id', ids) : {data: []};
@@ -538,9 +544,11 @@ async function teams() {
     ${mine.map(m => `<div class="box"><div class="spread"><h2 style="margin:0" data-team="${m.team_id}">${esc(m.teams.name)}</h2><button class="btn s g" onclick="leaveTeam('${m.team_id}')">Leave team</button></div>
       <p>${members.filter(x => x.team_id === m.team_id).map(x => `<span class="pill">${esc(x.profiles?.name || x.profiles?.email)}</span>`).join(' ')}</p>
       ${sent.filter(s => s.team_id === m.team_id).map(s => `<span class="pill warn">Invited: ${esc(s.email)} <a href="#" title="Email them the invite again" onclick="sendInvite('${s.team_id}','${esc(s.email)}');return false">✉</a> <a href="#" title="Cancel invite" onclick="cancelInvite('${s.team_id}','${esc(s.email)}');return false">✕</a></span>`).join(' ')}
+      <form class="row" style="margin-top:10px" onsubmit="savePublicName(event,'${m.team_id}')"><input name="pname" value="${esc(m.teams.public_name || '')}" placeholder="Public name shown on checks, e.g. Ray White Ashgrove" style="max-width:320px"><button class="btn s g">Save public name</button></form>
       <form class="row" style="margin-top:10px" onsubmit="invite(event,'${m.team_id}')"><input type="email" name="email" placeholder="Colleague's email" required style="max-width:280px"><button class="btn s">Invite</button></form></div>`).join('')}
     <div class="box"><form class="row" onsubmit="newTeam(event)"><input name="name" placeholder="New team name, e.g. Smith Realty – Rentals" required style="max-width:320px"><button class="btn o">Create team</button></form></div>`;
 }
+async function savePublicName(e, team) { e.preventDefault(); const {error} = await sb.rpc('set_team_public_name', {team, pname: e.target.pname.value}); fail(error); toast('Public name saved.'); }
 async function newTeam(e) { e.preventDefault(); const {error} = await sb.rpc('create_team', {p_name: e.target.name.value}); fail(error); toast('Team created.'); route(); }
 async function invite(e, team) {
   e.preventDefault(); const email = e.target.email.value.trim().toLowerCase();
@@ -593,3 +601,48 @@ async function profile() {
 }
 
 start();
+
+// ---------- look up a property / tenants ----------
+const fmtD = d => d ? new Date(d + 'T00:00').toLocaleDateString('en-AU', {day: 'numeric', month: 'short', year: 'numeric'}) : 'None recorded';
+function publicCard(i) {
+  if (!i) return '';
+  const lc = i.last_check, old = d => !d || d < addMonths(today(), -12);
+  const res = lc?.result ? `<span class="pill ${lc.result === 'Compliant' ? 'ok' : 'bad'}">${lc.result === 'Compliant' ? 'Passed' : 'Issues found'}</span>` : '';
+  return `<div class="box pubcard"><h3 style="margin-top:0">${esc(i.street)}, ${esc(i.suburb || '')} ${esc(i.postcode || '')}</h3>
+    <p><b>Last check:</b> ${lc ? `${fmtD(lc.date)} ${res}${lc.by ? ` by ${esc(lc.by)}` : ''}${lc.type === 'licensed' ? ' (electrician)' : ''}` : 'None recorded'} ${old(lc?.date) ? '<span class="pill bad">Overdue</span>' : '<span class="pill ok">Up to date</span>'}</p>
+    <p><b>Last tenant test & clean:</b> ${fmtD(i.last_tenant_check)}</p>
+    <p><b>Alarms recorded:</b> ${i.alarms}${i.earliest_expiry ? ` · <b>Earliest alarm expiry:</b> ${fmtD(i.earliest_expiry)}${i.earliest_expiry < today() ? ' <span class="pill bad">Expired</span>' : ''}` : ''}</p>
+    ${i.managed ? '' : '<p class="muted">No property manager has added this property to SAM yet.</p>'}</div>`;
+}
+const addrFields = () => `<label>Street address<input name="street" required placeholder="e.g. 3/12 Smith Street"></label><label>Suburb<input name="suburb" required></label><label>Postcode<input name="postcode" required inputmode="numeric" maxlength="4"></label>`;
+async function lookup() {
+  $('#main').innerHTML = `<h1>Look up a property</h1><p class="muted">See when a property's smoke alarms were last checked and by whom.</p>
+    <div class="box"><form id="lk" class="grid">${addrFields()}<div class="wide"><button class="btn o">Look up</button></div></form></div><div id="lkr"></div>`;
+  $('#lk').onsubmit = async e => {
+    e.preventDefault(); const d = formData(e.target);
+    const {data, error} = await sb.rpc('lookup_property', d); fail(error); unbusy();
+    $('#lkr').innerHTML = data ? publicCard(data) : '<div class="box">That address isn\'t in SAM yet. Check the spelling, or try the street type in full (Street rather than St).</div>';
+  };
+}
+async function tenantHome() {
+  const {data: links} = await sb.from('property_tenant_users').select('property_id').eq('user_id', me.id);
+  const cards = [];
+  for (const l of links || []) { const {data} = await sb.rpc('property_public', {p: l.property_id}); cards.push(data); }
+  setTimeout(() => {
+    const f = $('#join'); if (f) f.onsubmit = async e => { e.preventDefault(); const {error} = await sb.rpc('tenant_join_property', formData(e.target)); fail(error); toast('Your home has been added.'); route(); };
+  });
+  return `<p class="muted">Test and clean your smoke alarms at least once a year, and log it here. We'll send you reminders.</p>
+    ${cards.map(c => publicCard(c) + `<div class="box"><h3 style="margin-top:0">Log my yearly test & clean</h3><form class="grid" onsubmit="tenantCheck(event,'${c.id}')">
+      <label>Date<input type="date" name="check_date" value="${today()}" max="${today()}" required></label>
+      <div class="q wide"><p>When you pressed each test button, did every alarm sound?</p>${['Yes', 'No'].map(v => `<label class="opt"><input type="radio" name="all_sounded" value="${v}" required>${v}</label>`).join('')}</div>
+      <div class="q wide"><p>Did you clean each alarm (vacuum or soft brush on the vents)?</p>${['Yes', 'No'].map(v => `<label class="opt"><input type="radio" name="cleaned" value="${v}" required>${v}</label>`).join('')}</div>
+      <label class="wide">Anything to report? (beeping, damage, an alarm missing)<textarea name="notes"></textarea></label>
+      <div class="wide"><button class="btn o">Save</button></div></form></div>`).join('')}
+    <div class="box"><h3 style="margin-top:0">${cards.length ? 'Add another home' : 'Add your home'}</h3><form id="join" class="grid">${addrFields()}<div class="wide"><button class="btn o">Add</button></div></form>
+    <p class="muted">Have a look at <a href="#/help">Help</a> for how to test and clean your alarms.</p></div>`;
+}
+async function tenantCheck(e, pid) {
+  e.preventDefault(); const d = formData(e.target);
+  const {error} = await sb.from('tenant_checks').insert({property_id: pid, check_date: d.check_date, all_sounded: d.all_sounded === 'Yes', cleaned: d.cleaned === 'Yes', notes: d.notes || null}); fail(error);
+  toast(d.all_sounded === 'No' ? 'Saved. As an alarm didn\'t sound, please tell your property manager straight away.' : 'Saved. Thank you!'); route();
+}
