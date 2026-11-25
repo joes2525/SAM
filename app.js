@@ -329,7 +329,7 @@ async function property(id) {
     <div id="tform"></div>
     ${p.tenants.length ? `<table><tr><th>Name</th><th>Lease</th><th>Contact</th><th></th></tr>${p.tenants.map(t => `<tr>
       <td><b>${esc(t.name)}</b></td><td>${fmt(t.lease_start)} – ${fmt(t.lease_end)}${t.vacate_date ? `<div class="small">Vacating ${fmt(t.vacate_date)}</div>` : ''}</td>
-      <td class="small">${esc(t.phone || '')}<br>${esc((t.emails || []).join(', '))}</td>
+      <td>${[t.phone, ...(t.emails || [])].filter(Boolean).map(esc).join('<br>') || '<span class="muted">–</span>'}</td>
       <td><button class="btn s g" onclick="tenantForm('${t.id}')">Edit</button></td></tr>`).join('')}</table>` : '<p class="muted">No tenants added.</p>'}
 
     <h2>Check history</h2>
