@@ -34,7 +34,7 @@ function showPublic() {
   const [page, arg] = location.hash.replace(/^#\/?/, '').split('/');
   if (page === 'login') return showAuth('login');
   if (page === 'signup') return showAuth('signup', arg);
-  const pages = {course: pubCourse, lesson: n => lessonPage(n, '#pmain'), pricing: pubPricing, help: pubHelp};
+  const pages = {course: pubCourse, lesson: pubLocked, pricing: pubPricing, help: pubHelp};
   const p = pages[page] ? page : 'home';
   $('#public').innerHTML = `
     <a class="announce" href="#/signup">SAM Academy is part of SAM. Keep your smoke alarm records and certificates in SAM Register →</a>
@@ -85,12 +85,21 @@ async function pubCourse() {
     <h2>How it works</h2><p class="lead">Complete the 7 modules, then the exam. Once you pass you can start logging checks.</p>
     <div class="steps">${[['Do the modules', 'Whenever it suits you, 1-2 hours'], ['Pass the exam', 'Get a perfect score, 15 out of 15'], ['Check Smoke alarms', 'At your routine/vacate/entry inspections']]
       .map(([t, s], i) => `<div class="step"><span>Step ${i + 1}</span><b>${t}</b><small>${s}</small></div>`).join('')}</div>
-    <div class="mods">${(mods || []).filter(m => !m.is_exam).map(m => `<a class="card mod" href="#/lesson/${m.id}"><span class="num">${m.id}</span><div><b>${esc(m.title)}</b><p>${esc(m.summary || '')}</p></div><span class="btn s g">Open</span></a>`).join('')}</div>
+    <div class="mods">${(mods || []).filter(m => !m.is_exam).map(m => `<a class="card mod" href="#/lesson/${m.id}"><span class="num">${m.id}</span><div><b>${esc(m.title)}</b><p>${esc(m.summary || '')}</p></div><span class="btn s g">🔒 Sign up to open</span></a>`).join('')}</div>
     <div class="card band2"><h2>Done all 7?</h2><p><b>Time for the exam.</b> 15 multiple-choice questions. You need every one right. Didn’t pass? Have another go.</p>
       <a class="btn o" href="#/signup">Start the exam</a><p class="small muted">You’ll need a free SAM account so your progress is saved.</p></div></section>`;
 }
 
-// Lesson page: used on the public site and inside the app
+// Lessons need an account: visitors are asked to sign up or log in
+function pubLocked(n) {
+  $('#pmain').innerHTML = `<section class="wrap"><div class="card band2" style="max-width:640px">
+    <h2>Create a free account to start the course</h2>
+    <p>The modules, quizzes and exam are inside your SAM account, so your progress is saved as you go.</p>
+    <div class="row"><a class="btn o" href="#/signup">Create an account</a><a class="btn ghost" style="color:#fff;border-color:#fff" href="#/login">Log in</a></div>
+    <p class="small muted" style="margin-top:14px"><a href="#/course" style="color:#aab6cc">← Back to Course</a></p></div></section>`;
+}
+
+// Lesson page (inside the app, for logged-in users)
 async function lessonPage(n, target) {
   const {data: m} = await sb.from('modules').select('*').eq('id', +n).single();
   if (!m) { $(target).innerHTML = '<p>Module not found.</p>'; return; }
