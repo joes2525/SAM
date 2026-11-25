@@ -339,10 +339,10 @@ async function check(id) {
       ${p.alarms.length ? `<p class="small muted">Check each alarm matches what's on the ceiling. If anything is different, update it on the property page before you start.</p>
       <table class="alarmsum"><tr><th>Location</th><th>Type</th><th>Power</th><th>Interconnected</th><th>AS 3786-2014</th><th>Made / expires</th><th>Brand / model</th><th>Status</th></tr>
       ${[...p.alarms].sort((x, y) => x.location.localeCompare(y.location)).map(a => `<tr>
-        <td><b>${esc(a.location)}</b></td><td>${esc(a.alarm_type || '–')}</td><td>${esc(a.power_source || '–')}</td>
-        <td>${esc(a.interconnected || '–')}</td><td>${esc(a.as3786 || '–')}</td>
-        <td>${a.manufacture_year ? (a.manufacture_month ? String(a.manufacture_month).padStart(2, '0') + '/' : '') + a.manufacture_year : '–'}${a.expiry_date ? `<div class="small muted">Expires ${fmt(a.expiry_date)}</div>` : ''}</td>
-        <td>${esc([a.brand, a.model].filter(Boolean).join(' ') || '–')}</td><td>${alarmPill(a)}</td></tr>`).join('')}</table>`
+        <td><b>${esc(a.location)}</b></td><td><span class="ml">Type: </span>${esc(a.alarm_type || '–')}</td><td><span class="ml">Power: </span>${esc(a.power_source || '–')}</td>
+        <td><span class="ml">Interconnected: </span>${esc(a.interconnected || '–')}</td><td><span class="ml">AS 3786-2014: </span>${esc(a.as3786 || '–')}</td>
+        <td><span class="ml">Made: </span>${a.manufacture_year ? (a.manufacture_month ? String(a.manufacture_month).padStart(2, '0') + '/' : '') + a.manufacture_year : '–'}${a.expiry_date ? `<div class="small muted">Expires ${fmt(a.expiry_date)}</div>` : ''}</td>
+        <td><span class="ml">Brand / model: </span>${esc([a.brand, a.model].filter(Boolean).join(' ') || '–')}</td><td>${alarmPill(a)}</td></tr>`).join('')}</table>`
       : '<p class="pill bad">No alarms recorded. Add the alarms on the property page before logging a check.</p>'}
       ${p.bedrooms != null && p.storeys != null && p.alarms.length < +p.bedrooms + +p.storeys + 1 ? `<p class="pill warn">${p.alarms.length} alarm(s) on record. A ${p.bedrooms}-bedroom, ${p.storeys}-storey property usually needs at least ${+p.bedrooms + +p.storeys + 1}.</p>` : ''}
       <p><a class="btn s g" href="#/property/${p.id}">Update alarm details</a></p></div>
