@@ -293,8 +293,8 @@ async function property(id) {
       <td>${esc(a.alarm_type || '?')}<div class="small muted">${esc(a.power_source || '')}</div></td>
       <td>${fmt(a.expiry_date)}</td><td>${alarmPill(a)}</td>
       <td><button class="btn s g" onclick="inlineEdit('${a.id}', stayPut, 'stayPut()')">Edit</button></td></tr>`).join('')}</table>${SAM_CHECK_NOTE}` : '<p class="muted">No alarms added yet.</p>'}
-    ${est ? `<p class="small estnote ${p.alarms.length < est ? 'bad' : p.alarms.length === est ? 'warn' : 'ok'}">**Alarm estimate: this property may need ${estR} alarms (one in each bedroom, plus one on each storey for the hallway or the way out). ${p.alarms.length} recorded. This is only an estimate based on a typical layout. Some properties need more, for example a study used as a bedroom, or bedrooms off separate hallways.</p>`
-      : `<p class="small estnote warn">**Alarm estimate: add the number of bedrooms and storeys (Edit property) to see an estimate of how many alarms this property needs.</p>`}
+    ${est ? `<p class="small muted estnote">**Alarm estimate: this property may need ${estR} alarms (one in each bedroom, plus one on each storey for the hallway or the way out). <span class="pill ${p.alarms.length < est ? 'bad' : p.alarms.length === est ? 'warn' : 'ok'}">${p.alarms.length} recorded</span> This is only an estimate based on a typical layout. Some properties need more, for example a study used as a bedroom, or bedrooms off separate hallways.</p>`
+      : `<p class="small muted estnote">**Alarm estimate: <span class="pill warn">bedrooms and storeys missing</span> Add them (Edit property) to see an estimate of how many alarms this property needs.</p>`}
     <div class="row" style="margin-top:12px"><button class="btn s" onclick="alarmForm()">Add alarm</button>${p.alarms.length ? '<button class="btn s g" onclick="copyAlarm()">Copy alarm</button>' : ''}</div>
     <div id="aform" style="margin-top:12px"></div>
 

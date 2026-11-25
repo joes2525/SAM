@@ -212,4 +212,4 @@ td.inlineform{padding:0!important;background:#f8fafd}
 td.inlineform .box{margin:0;border:2px solid var(--blue);border-radius:12px}
 figure.diagram{margin:22px 0;background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px}
 figure.diagram img{width:100%;height:auto;display:block}
-.estnote{padding:8px 12px;border-radius:10px;margin:6px 0 0}.estnote.bad{background:#fdecec;color:#9b1c1c}.estnote.warn{background:#fff6e0;color:#8a5a00}.estnote.ok{background:#e8f6ee;color:#1d6b3f}
+.estnote .pill{font-size:inherit;padding:1px 8px;vertical-align:baseline}
