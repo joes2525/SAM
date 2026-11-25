@@ -512,7 +512,7 @@ async function invite(e, team) {
 }
 // Email the invite through SAM (Resend). If that isn't possible, fall back to the inviter's own email app.
 async function sendInvite(team, email) {
-  const {data, error} = await sb.functions.invoke('send-invite', {body: {team_id: team, email}});
+  const {data, error} = await sb.functions.invoke('clever-action', {body: {team_id: team, email}});
   if (!error && data?.sent) return toast('Invite emailed to ' + email + '.');
   let msg = error?.message || data?.error || '';
   try { msg = (await error.context.json()).error || msg; } catch (e) {}
@@ -542,7 +542,7 @@ async function help() {
 
 async function runImport(b) {
   b.classList.add('busy'); b.disabled = true; $('#importres').textContent = 'Importing… this can take a minute.';
-  const {data, error} = await sb.functions.invoke('import-airtable', {body: {}});
+  const {data, error} = await sb.functions.invoke('smooth-endpoint', {body: {}});
   let msg = data; if (error) { try { msg = await error.context.json(); } catch (e) { msg = {error: error.message}; } }
   $('#importres').textContent = JSON.stringify(msg, null, 2); unbusy();
 }

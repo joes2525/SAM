@@ -1,3 +1,4 @@
+// Deployed in Supabase as "import-airtable" (web address: /functions/v1/smooth-endpoint).
 // SAM: one-off import of the SAM Register test data from Airtable (properties, alarms, tenants, checks and photos).
 // Secret needed: AIRTABLE_TOKEN (read-only personal access token for the SAM Register base).
 // Only the admin account below can run it. Safe to run again: rows are matched on their Airtable record id.

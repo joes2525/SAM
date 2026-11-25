@@ -1,4 +1,4 @@
-// SAM: emails a team invite through Resend.
+// SAM: emails a team invite through Resend. Deployed in Supabase as "send-invite" (web address: /functions/v1/clever-action).
 // Secrets (Supabase > Edge Functions > Secrets):
 //   RESEND_API_KEY  - required
 //   SAM_FROM        - optional, e.g. "SAM <invites@yourdomain.com.au>". Until a domain is verified in Resend,
