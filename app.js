@@ -632,7 +632,9 @@ async function tenantHome() {
     const f = $('#join'); if (f) f.onsubmit = async e => { e.preventDefault(); const {error} = await sb.rpc('tenant_join_property', formData(e.target)); fail(error); toast('Your home has been added.'); route(); };
   });
   return `<p class="muted">Test and clean your smoke alarms at least once a year, and log it here. We'll send you reminders.</p>
-    ${cards.map(c => publicCard(c).replace('</h3>', ` <button class="btn s g" style="float:right" onclick="removeHome('${c.id}')">Remove</button></h3>`) + `<div class="box"><h3 style="margin-top:0">Log my yearly test & clean</h3><form class="grid" onsubmit="tenantCheck(event,'${c.id}')">
+    ${cards.map(c => publicCard(c).replace('</h3>', ` <button class="btn s g" style="float:right" onclick="removeHome('${c.id}')">Remove</button></h3>`) + `<div class="box"><h3 style="margin-top:0">Your yearly test & clean</h3>${tenantDue(c.last_tenant_check)}
+      <button class="btn o" onclick="this.style.display='none';this.nextElementSibling.style.display='grid'">Test & clean now</button>
+      <form class="grid" style="display:none;margin-top:14px" onsubmit="tenantCheck(event,'${c.id}')">
       <label>Date<input type="date" name="check_date" value="${today()}" max="${today()}" required></label>
       <div class="q wide"><p>When you pressed each test button, did every alarm sound?</p>${['Yes', 'No'].map(v => `<label class="opt"><input type="radio" name="all_sounded" value="${v}" required>${v}</label>`).join('')}</div>
       <div class="q wide"><p>Did you clean each alarm (vacuum or soft brush on the vents)?</p>${['Yes', 'No'].map(v => `<label class="opt"><input type="radio" name="cleaned" value="${v}" required>${v}</label>`).join('')}</div>
@@ -686,3 +688,10 @@ function attachAddress(input) {
   input.addEventListener('blur', () => setTimeout(close, 150));
 }
 new MutationObserver(() => document.querySelectorAll('input[name="street"]').forEach(attachAddress)).observe(document.body, {childList: true, subtree: true});
+function tenantDue(last) {
+  if (!last) return '<p class="pill warn" style="white-space:normal">No test & clean recorded yet. Please do one now.</p>';
+  const due = addMonths(last, 12), soon = addMonths(today(), 1);
+  if (due < today()) return `<p class="pill bad" style="white-space:normal">Overdue. Your last test & clean was ${fmtD(last)}, so the next one was due ${fmtD(due)}.</p>`;
+  if (due <= soon) return `<p class="pill warn" style="white-space:normal">Coming up. Your next test & clean is due ${fmtD(due)}.</p>`;
+  return `<p class="pill ok" style="white-space:normal">All good. Your last test & clean was ${fmtD(last)}. The next one is due ${fmtD(due)}.</p>`;
+}
