@@ -346,7 +346,9 @@ function tenantForm(id) {
   const t = window._p.tenants.find(x => x.id === id) || {};
   $('#tform').innerHTML = `<div class="box"><form id="tf" class="f">
     <label>Name<input name="name" required value="${esc(t.name)}"></label><label>Phone<input name="phone" value="${esc(t.phone)}"></label>
-    <label class="wide">Emails (separate with commas)<input name="emails" value="${esc((t.emails || []).join(', '))}"></label>
+    <div class="wide" id="temails"><label style="margin-bottom:6px">Email</label>
+      ${((t.emails || []).length ? t.emails : ['']).map(e => `<input type="email" name="tenant_email" value="${esc(e)}" style="margin-bottom:6px">`).join('')}
+      <button type="button" class="btn s g" onclick="this.insertAdjacentHTML('beforebegin', '<input type=&quot;email&quot; name=&quot;tenant_email&quot; style=&quot;margin-bottom:6px&quot;>'); this.previousElementSibling.focus()">+ Add another email</button></div>
     <label>Lease start<input type="date" name="lease_start" value="${esc(t.lease_start)}"></label>
     <label>Lease end<input type="date" name="lease_end" value="${esc(t.lease_end)}"></label>
     <label>Vacate date (if moving out)<input type="date" name="vacate_date" value="${esc(t.vacate_date)}"></label>
@@ -355,7 +357,7 @@ function tenantForm(id) {
     ${t.id ? `<button type="button" class="btn r" onclick="delRow('tenants','${t.id}')">Delete</button>` : ''}</div></form></div>`;
   $('#tf').onsubmit = async e => {
     e.preventDefault(); const d = formData(e.target); d.property_id = window._p.id;
-    d.emails = (d.emails || '').split(',').map(s => s.trim()).filter(Boolean);
+    d.emails = [...e.target.querySelectorAll('[name=tenant_email]')].map(i => i.value.trim()).filter(Boolean); delete d.tenant_email;
     const {error} = t.id ? await sb.from('tenants').update(d).eq('id', t.id) : await sb.from('tenants').insert(d); fail(error); toast('Tenant saved.'); route();
   };
   $('#tform').scrollIntoView({behavior: 'smooth'});
@@ -368,7 +370,6 @@ const CHECK_QS = [
   ['q4', 'Is any alarm damaged, painted over, covered or blocked?'],
   ['c1', 'Are smoke alarms installed in all required locations (each storey, each bedroom, hallways connecting bedrooms, or the exit path on storeys without bedrooms)?'],
   ['c5', 'Have all replaceable batteries (including 9V backups in hardwired alarms) more than 6 months old been replaced and dated?'],
-  ['c6', 'Did each alarm sound when you pressed its test button?'],
   ['c7', 'When you tested each alarm, did all the other alarms sound at the same time?']];
 async function check(id) {
   const {data: p, error} = await sb.from('properties').select('*, alarms(*)').eq('id', id).single(); fail(error); window._p = p; window._ctc = new Set();
