@@ -454,7 +454,7 @@ async function teams() {
     ${invites.map(i => `<div class="box spread"><span>You've been invited to join <b>${esc(i.teams?.name)}</b></span><button class="btn o" onclick="acceptInvite('${i.team_id}')">Join team</button></div>`).join('')}
     ${mine.map(m => `<div class="box"><div class="spread"><h2 style="margin:0" data-team="${m.team_id}">${esc(m.teams.name)}</h2><button class="btn s g" onclick="leaveTeam('${m.team_id}')">Leave team</button></div>
       <p>${members.filter(x => x.team_id === m.team_id).map(x => `<span class="pill">${esc(x.profiles?.name || x.profiles?.email)}</span>`).join(' ')}</p>
-      ${sent.filter(s => s.team_id === m.team_id).map(s => `<span class="pill warn">Invited: ${esc(s.email)} <a href="#" title="Email them the invite again" onclick="inviteEmail('${s.team_id}','${esc(s.email)}');return false">✉</a> <a href="#" title="Cancel invite" onclick="cancelInvite('${s.team_id}','${esc(s.email)}');return false">✕</a></span>`).join(' ')}
+      ${sent.filter(s => s.team_id === m.team_id).map(s => `<span class="pill warn">Invited: ${esc(s.email)} <a href="#" title="Email them the invite again" onclick="sendInvite('${s.team_id}','${esc(s.email)}');return false">✉</a> <a href="#" title="Cancel invite" onclick="cancelInvite('${s.team_id}','${esc(s.email)}');return false">✕</a></span>`).join(' ')}
       <form class="row" style="margin-top:10px" onsubmit="invite(event,'${m.team_id}')"><input type="email" name="email" placeholder="Colleague's email" required style="max-width:280px"><button class="btn s">Invite</button></form></div>`).join('')}
     <div class="box"><form class="row" onsubmit="newTeam(event)"><input name="name" placeholder="New team name, e.g. Smith Realty – Rentals" required style="max-width:320px"><button class="btn o">Create team</button></form></div>`;
 }
@@ -462,7 +462,16 @@ async function newTeam(e) { e.preventDefault(); const {error} = await sb.rpc('cr
 async function invite(e, team) {
   e.preventDefault(); const email = e.target.email.value.trim().toLowerCase();
   const {error} = await sb.from('team_invites').insert({team_id: team, email, invited_by: me.id}); fail(error);
-  await route(); inviteEmail(team, email);
+  await route(); sendInvite(team, email);
+}
+// Email the invite through SAM (Resend). If that isn't possible, fall back to the inviter's own email app.
+async function sendInvite(team, email) {
+  const {data, error} = await sb.functions.invoke('send-invite', {body: {team_id: team, email}});
+  if (!error && data?.sent) return toast('Invite emailed to ' + email + '.');
+  let msg = error?.message || data?.error || '';
+  try { msg = (await error.context.json()).error || msg; } catch (e) {}
+  console.warn('SAM invite email not sent:', msg);
+  inviteEmail(team, email);
 }
 // Until SAM can send emails itself: open the inviter's own email app with a ready-made invite
 function inviteEmail(team, email) {
