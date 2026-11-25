@@ -310,7 +310,7 @@ function copyAlarm() {
   const last = [...window._p.alarms].sort((x, y) => (x.created_at || '').localeCompare(y.created_at || '')).pop();
   alarmForm(null, last);
 }
-function alarmForm(id, copyFrom) {
+function alarmForm(id, copyFrom, opts = {}) {
   const a = copyFrom ? {...copyFrom, id: null, location: '', manufacture_year: null, manufacture_month: null, photo_path: null} : window._p.alarms.find(x => x.id === id) || {}, years = []; for (let y = new Date().getFullYear(); y >= 2005; y--) years.push(String(y));
   $('#aform').innerHTML = `<div class="box">${copyFrom ? `<p class="small muted">Copied from <b>${esc(copyFrom.location)}</b>. Enter where this alarm is and its manufacture date (printed on the alarm), then check the other details.</p>` : ''}<form id="alf" class="f">
     <label>Location<select name="loc_pick" required onchange="document.getElementById('locother').classList.toggle('hidden', this.value !== 'Other'); document.querySelector('[name=location_other]').required = this.value === 'Other'">
@@ -325,14 +325,14 @@ function alarmForm(id, copyFrom) {
     <label>Brand<input name="brand" value="${esc(a.brand)}"></label><label>Model<input name="model" value="${esc(a.model)}"></label>
     <label>Photo of the alarm${a.id && a.photo_path ? ' (choose a new one to replace it)' : ''}<input type="file" name="photo" accept="image/*"></label>
     <div class="wide row"><button class="btn o">Save alarm</button><button type="button" class="btn g" onclick="this.closest('.box').remove()">Cancel</button>
-    ${a.id ? `<button type="button" class="btn r" onclick="delRow('alarms','${a.id}')">Delete</button>` : ''}</div></form></div>`;
+    ${a.id && !opts.done ? `<button type="button" class="btn r" onclick="delRow('alarms','${a.id}')">Delete</button>` : ''}</div></form></div>`;
   $('#alf').onsubmit = async e => {
     e.preventDefault(); const d = formData(e.target); d.property_id = window._p.id;
     d.location = d.loc_pick === 'Other' ? d.location_other : d.loc_pick; delete d.loc_pick; delete d.location_other;
     const file = e.target.photo.files[0]; delete d.photo; if (copyFrom) delete d.photo_path;
     const {data: saved, error} = a.id ? await sb.from('alarms').update(d).eq('id', a.id).select().single() : await sb.from('alarms').insert(d).select().single(); fail(error);
     if (file) { const path = await uploadPhoto(file, `${window._p.id}/alarm-${saved.id}.jpg`); await sb.from('alarms').update({photo_path: path}).eq('id', saved.id); }
-    toast('Alarm saved.'); route();
+    toast('Alarm saved.'); (opts.done || route)();
   };
   $('#aform').scrollIntoView({behavior: 'smooth'});
 }
@@ -368,7 +368,7 @@ const CHECK_QS = [
   ['c6', 'Did each alarm sound when you pressed its test button?'],
   ['c7', 'When you tested each alarm, did all the other alarms sound at the same time?']];
 async function check(id) {
-  const {data: p, error} = await sb.from('properties').select('*, alarms(*)').eq('id', id).single(); fail(error);
+  const {data: p, error} = await sb.from('properties').select('*, alarms(*)').eq('id', id).single(); fail(error); window._p = p;
   const practice = !approved && window._practice; window._practice = false;
   if (!approved && !practice) {
     $('#main').innerHTML = `<h1>Log a check</h1><div class="box">Before you can log checks you need to pass all 7 SAM Academy modules and the final exam (re-sat every 12 months).
@@ -382,17 +382,7 @@ async function check(id) {
     ${practice ? PRACTICE_BANNER : ''}<div id="step"></div>`;
   const form = (refResult) => {
     const flags = p.alarms.map(a => ({a, r: alarmIssues(a)})).filter(x => x.r.status !== 'ok');
-    $('#step').innerHTML = `<div class="box"><h2 style="margin-top:0">Alarms on record (${p.alarms.length})</h2>
-      ${p.alarms.length ? `<p class="small muted">Check each alarm matches what's on the ceiling. If anything is different, update it on the property page before you start.</p>
-      <table class="alarmsum"><tr><th>Location</th><th>Type</th><th>Power</th><th>Interconnected</th><th>AS 3786-2014</th><th>Made / expires</th><th>Brand / model</th><th>SAM Check*</th></tr>
-      ${[...p.alarms].sort((x, y) => x.location.localeCompare(y.location)).map(a => `<tr>
-        <td><b>${esc(a.location)}</b></td><td><span class="ml">Type: </span>${esc(a.alarm_type || '–')}</td><td><span class="ml">Power: </span>${esc(a.power_source || '–')}</td>
-        <td><span class="ml">Interconnected: </span>${esc(a.interconnected || '–')}</td><td><span class="ml">AS 3786-2014: </span>${esc(a.as3786 || '–')}</td>
-        <td><span class="ml">Made: </span>${a.manufacture_year ? (a.manufacture_month ? String(a.manufacture_month).padStart(2, '0') + '/' : '') + a.manufacture_year : '–'}${a.expiry_date ? `<div class="small muted">Expires ${fmt(a.expiry_date)}</div>` : ''}</td>
-        <td><span class="ml">Brand / model: </span>${esc([a.brand, a.model].filter(Boolean).join(' ') || '–')}</td><td>${alarmPill(a)}</td></tr>`).join('')}</table>${SAM_CHECK_NOTE}`
-      : '<p class="pill bad">No alarms recorded. Add the alarms on the property page before logging a check.</p>'}
-      ${p.bedrooms != null && p.storeys != null && p.alarms.length < +p.bedrooms + +p.storeys + 1 ? `<p class="pill warn">${p.alarms.length} alarm(s) on record. A ${p.bedrooms}-bedroom, ${p.storeys}-storey property usually needs at least ${+p.bedrooms + +p.storeys + 1}.</p>` : ''}
-      <p><a class="btn s g" href="#/property/${p.id}">Update alarm details</a></p></div>
+    $('#step').innerHTML = `<div id="asum">${alarmSummary(p)}</div><div id="aform"></div>
       <form id="cf"><div class="box"><label style="max-width:240px">Date of the check<input type="date" name="inspection_date" value="${today()}" min="${addDays(today(), -7)}" max="${today()}" required></label></div>
       ${CHECK_QS.map(([k, q]) => `<div class="q"><b>${esc(q)}</b><div class="row">${['Yes', 'No'].map(v => `<label class="opt"><input type="radio" name="${k}" value="${v}" required> ${v}</label>`).join('')}</div></div>`).join('')}
       <div class="q"><b>Your overall assessment</b>
@@ -404,6 +394,7 @@ async function check(id) {
       ${practice ? PRACTICE_BANNER : ''}<button class="btn o">${practice ? 'Finish practice check' : 'Submit check'}</button></form>`;
     $('#cf').onsubmit = async e => {
       e.preventDefault(); const d = formData(e.target);
+      const flags = p.alarms.map(a => ({a, r: alarmIssues(a)})).filter(x => x.r.status !== 'ok');
       const override = d.assessment === 'Compliant' && flags.length > 0;
       if (override && !d.notes) return toast('Please explain in the notes why the property is compliant despite the flags.');
       if (!p.alarms.length && !practice) return toast('Add the alarms to the property first.');
@@ -430,6 +421,25 @@ async function check(id) {
   };
 }
 
+// Alarm summary on the check form, with Edit buttons that update alarms without leaving the check
+function alarmSummary(p) {
+  return `<div class="box"><h2 style="margin-top:0">Alarms on record (${p.alarms.length})</h2>
+      ${p.alarms.length ? `<p class="small muted">Check each alarm matches what's on the ceiling. If anything is different, click Edit to update it.</p>
+      <table class="alarmsum"><tr><th>Location</th><th>Type</th><th>Power</th><th>Interconnected</th><th>AS 3786-2014</th><th>Made / expires</th><th>Brand / model</th><th>SAM Check*</th></tr>
+      ${[...p.alarms].sort((x, y) => x.location.localeCompare(y.location)).map(a => `<tr>
+        <td><b>${esc(a.location)}</b> <button type="button" class="btn s g" onclick="checkEditAlarm('${a.id}')">Edit</button></td><td><span class="ml">Type: </span>${esc(a.alarm_type || '–')}</td><td><span class="ml">Power: </span>${esc(a.power_source || '–')}</td>
+        <td><span class="ml">Interconnected: </span>${esc(a.interconnected || '–')}</td><td><span class="ml">AS 3786-2014: </span>${esc(a.as3786 || '–')}</td>
+        <td><span class="ml">Made: </span>${a.manufacture_year ? (a.manufacture_month ? String(a.manufacture_month).padStart(2, '0') + '/' : '') + a.manufacture_year : '–'}${a.expiry_date ? `<div class="small muted">Expires ${fmt(a.expiry_date)}</div>` : ''}</td>
+        <td><span class="ml">Brand / model: </span>${esc([a.brand, a.model].filter(Boolean).join(' ') || '–')}</td><td>${alarmPill(a)}</td></tr>`).join('')}</table>${SAM_CHECK_NOTE}`
+      : '<p class="pill bad">No alarms recorded. Add the alarms on the property page before logging a check.</p>'}
+      ${p.bedrooms != null && p.storeys != null && p.alarms.length < +p.bedrooms + +p.storeys + 1 ? `<p class="pill warn">${p.alarms.length} alarm(s) on record. A ${p.bedrooms}-bedroom, ${p.storeys}-storey property usually needs at least ${+p.bedrooms + +p.storeys + 1}.</p>` : ''}
+      <p><button type="button" class="btn s g" onclick="alarmForm(null, null, {done: refreshAlarmSummary})">Add an alarm</button></p></div>`;
+}
+function checkEditAlarm(id) { alarmForm(id, null, {done: refreshAlarmSummary}); }
+async function refreshAlarmSummary() {
+  const {data} = await sb.from('alarms').select('*').eq('property_id', window._p.id); window._p.alarms = data || [];
+  $('#asum').innerHTML = alarmSummary(window._p); $('#aform').innerHTML = ''; $('#asum').scrollIntoView({behavior: 'smooth'});
+}
 const PRACTICE_BANNER = `<div class="practice-banner"><b>🧪 PRACTICE ONLY</b> This is for practising and testing. Nothing you enter here is saved and it does not count as a smoke alarm check.</div>`;
 // Practice check: give feedback instead of saving
 function practiceResult(p, d, flags) {
