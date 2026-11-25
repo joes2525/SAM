@@ -186,3 +186,9 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em}
 .mod .num{background:var(--orange)}
 .pfoot{margin-top:0}
 @media(max-width:640px){.public h1{font-size:32px}.toplogo{height:44px}.aud{padding:24px!important}}
+/* bigger logos */
+.toplogo{height:78px}
+.sidelogo{width:236px}
+.side{width:272px}
+@media(max-width:820px){.sidelogo{width:200px}}
+@media(max-width:640px){.toplogo{height:56px}}
