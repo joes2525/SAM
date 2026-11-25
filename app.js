@@ -14,7 +14,7 @@ const fmt = d => d ? new Date(d).toLocaleDateString('en-AU', {day:'numeric', mon
 const addr = p => [p.street, p.suburb, p.state, p.postcode].filter(Boolean).join(', ');
 const opts = (list, val) => list.map(o => `<option ${o === val ? 'selected' : ''}>${esc(o)}</option>`).join('');
 const formData = f => Object.fromEntries([...new FormData(f)].map(([k, v]) => [k, v === '' ? null : v]));
-function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.add('hidden'), 3500); }
+function toast(msg) { setTimeout(unbusy, 0); const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.add('hidden'), 3500); }
 function unbusy() { document.querySelectorAll('.btn.busy').forEach(b => { b.classList.remove('busy'); b.disabled = false; }); }
 function fail(error) { if (error) { unbusy(); toast(error.message); throw error; } }
 // Show a spinner on the button while a form is saving
