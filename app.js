@@ -732,9 +732,9 @@ new MutationObserver(() => document.querySelectorAll('input[name="street"]').for
 function tenantDue(last) {
   if (!last) return '<p class="pill warn" style="white-space:normal">No test & clean recorded yet. Please do one now.</p>';
   const due = addMonths(last, 12), soon = addMonths(today(), 1);
-  if (due < today()) return `<p class="pill bad" style="white-space:normal">Overdue. Your last test & clean was ${fmtD(last)}, so the next one was due ${fmtD(due)}.</p>`;
+  if (due < today()) return `<p class="pill bad" style="white-space:normal">Overdue. You last tested and cleaned your alarms on ${fmtD(last)}, so the next test was due ${fmtD(due)}.</p>`;
   if (due <= soon) return `<p class="pill warn" style="white-space:normal">Coming up. Your next test & clean is due ${fmtD(due)}.</p>`;
-  return `<p class="pill ok" style="white-space:normal">All good. Your last test & clean was ${fmtD(last)}. The next one is due ${fmtD(due)}.</p>`;
+  return `<p class="pill ok" style="white-space:normal">All good. You last tested and cleaned your alarms on ${fmtD(last)}. The next test is due ${fmtD(due)}.</p>`;
 }
 const logoUrl = p => sb.storage.from('logos').getPublicUrl(p).data.publicUrl;
 async function uploadLogo(input) {
