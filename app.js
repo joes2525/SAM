@@ -540,13 +540,6 @@ async function help() {
     <h2>Questions</h2>${f.map(x => `<details><summary>${esc(x.question)}</summary><p class="pre">${esc(x.answer)}</p></details>`).join('')}`;
 }
 
-async function runImport(b) {
-  b.classList.add('busy'); b.disabled = true; $('#importres').textContent = 'Importing… this can take a minute.';
-  const {data, error} = await sb.functions.invoke('smooth-endpoint', {body: {}});
-  let msg = data; if (error) { try { msg = await error.context.json(); } catch (e) { msg = {error: error.message}; } }
-  $('#importres').textContent = JSON.stringify(msg, null, 2); unbusy();
-}
-
 // ---------- profile ----------
 async function profile() {
   $('#main').innerHTML = `<h1>Profile</h1><div class="box"><form id="prf" class="f">
@@ -555,8 +548,7 @@ async function profile() {
     ${me.role === 'electrician' ? `<label>Licence number<input name="licence_no" value="${esc(me.licence_no)}"></label>` : ''}
     <label>Email<input disabled value="${esc(me.email)}"></label><label>Account type<input disabled value="${esc(ROLES[me.role] || me.role)}"></label>
     <div class="wide row"><button class="btn o">Save</button><button type="button" class="btn g" onclick="newPassword()">Change password</button></div></form></div>
-    ${me.email.toLowerCase() === 'joes25@gmail.com' ? `<div class="box"><b>Admin: import test data</b><p class="small muted">Copies the SAM Register properties, alarms, tenants, checks and photos from Airtable into your account. Safe to run again.</p>
-      <button class="btn" onclick="runImport(this)">Import from Airtable</button><pre id="importres" class="small"></pre></div>` : ''}`;
+`;
   $('#prf').onsubmit = async e => {
     e.preventDefault(); const d = formData(e.target);
     const {data, error} = await sb.from('profiles').update(d).eq('id', me.id).select().single(); fail(error); me = data; toast('Saved.');
