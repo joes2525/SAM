@@ -42,6 +42,7 @@ function alarmIssues(a) {
   const soon = a.expiry_date && a.expiry_date > today() && a.expiry_date <= addMonths(today(), 12);
   return {bad, missing, soon, status: bad.length ? 'bad' : missing.length ? 'warn' : 'ok'};
 }
+const SAM_CHECK_NOTE = `<p class="small muted">*SAM Check: a basic automatic check of the details entered for each alarm (type, power source, interconnection, AS 3786-2014 marking and age) against the Queensland rules. It is only as accurate as the details entered and doesn't replace checking the alarm in person.</p>`;
 function alarmPill(a) {
   const r = alarmIssues(a);
   if (r.status === 'bad') return `<span class="pill bad">❌ ${esc(r.bad.join(', '))}</span>`;
@@ -237,11 +238,11 @@ async function property(id) {
 
     <div class="spread"><h2>Smoke alarms (${p.alarms.length}${est ? ' of about ' + est + ' needed' : ''})</h2></div>
     ${est && p.alarms.length < est ? `<p class="pill warn">This property may need at least ${est} alarms (bedrooms + storeys + 1). This is an estimate only.</p>` : ''}
-    ${p.alarms.length ? `<table><tr><th>Location</th><th>Type / power</th><th>Expires</th><th>Status</th><th></th></tr>${p.alarms.map(a => `<tr>
+    ${p.alarms.length ? `<table><tr><th>Location</th><th>Type / power</th><th>Expires</th><th>SAM Check*</th><th></th></tr>${p.alarms.map(a => `<tr>
       <td><b>${esc(a.location)}</b><div class="small muted">${esc([a.brand, a.model].filter(Boolean).join(' '))}</div></td>
       <td>${esc(a.alarm_type || '?')}<div class="small muted">${esc(a.power_source || '')}</div></td>
       <td>${fmt(a.expiry_date)}</td><td>${alarmPill(a)}</td>
-      <td><button class="btn s g" onclick="alarmForm('${a.id}')">Edit</button></td></tr>`).join('')}</table>` : '<p class="muted">No alarms added yet.</p>'}
+      <td><button class="btn s g" onclick="alarmForm('${a.id}')">Edit</button></td></tr>`).join('')}</table>${SAM_CHECK_NOTE}` : '<p class="muted">No alarms added yet.</p>'}
     <div class="row" style="margin-top:12px"><button class="btn s" onclick="alarmForm()">Add alarm</button>${p.alarms.length ? '<button class="btn s g" onclick="copyAlarm()">Copy alarm</button>' : ''}</div>
     <div id="aform" style="margin-top:12px"></div>
 
@@ -337,12 +338,12 @@ async function check(id) {
     const flags = p.alarms.map(a => ({a, r: alarmIssues(a)})).filter(x => x.r.status !== 'ok');
     $('#step').innerHTML = `<div class="box"><h2 style="margin-top:0">Alarms on record (${p.alarms.length})</h2>
       ${p.alarms.length ? `<p class="small muted">Check each alarm matches what's on the ceiling. If anything is different, update it on the property page before you start.</p>
-      <table class="alarmsum"><tr><th>Location</th><th>Type</th><th>Power</th><th>Interconnected</th><th>AS 3786-2014</th><th>Made / expires</th><th>Brand / model</th><th>Status</th></tr>
+      <table class="alarmsum"><tr><th>Location</th><th>Type</th><th>Power</th><th>Interconnected</th><th>AS 3786-2014</th><th>Made / expires</th><th>Brand / model</th><th>SAM Check*</th></tr>
       ${[...p.alarms].sort((x, y) => x.location.localeCompare(y.location)).map(a => `<tr>
         <td><b>${esc(a.location)}</b></td><td><span class="ml">Type: </span>${esc(a.alarm_type || '–')}</td><td><span class="ml">Power: </span>${esc(a.power_source || '–')}</td>
         <td><span class="ml">Interconnected: </span>${esc(a.interconnected || '–')}</td><td><span class="ml">AS 3786-2014: </span>${esc(a.as3786 || '–')}</td>
         <td><span class="ml">Made: </span>${a.manufacture_year ? (a.manufacture_month ? String(a.manufacture_month).padStart(2, '0') + '/' : '') + a.manufacture_year : '–'}${a.expiry_date ? `<div class="small muted">Expires ${fmt(a.expiry_date)}</div>` : ''}</td>
-        <td><span class="ml">Brand / model: </span>${esc([a.brand, a.model].filter(Boolean).join(' ') || '–')}</td><td>${alarmPill(a)}</td></tr>`).join('')}</table>`
+        <td><span class="ml">Brand / model: </span>${esc([a.brand, a.model].filter(Boolean).join(' ') || '–')}</td><td>${alarmPill(a)}</td></tr>`).join('')}</table>${SAM_CHECK_NOTE}`
       : '<p class="pill bad">No alarms recorded. Add the alarms on the property page before logging a check.</p>'}
       ${p.bedrooms != null && p.storeys != null && p.alarms.length < +p.bedrooms + +p.storeys + 1 ? `<p class="pill warn">${p.alarms.length} alarm(s) on record. A ${p.bedrooms}-bedroom, ${p.storeys}-storey property usually needs at least ${+p.bedrooms + +p.storeys + 1}.</p>` : ''}
       <p><a class="btn s g" href="#/property/${p.id}">Update alarm details</a></p></div>
