@@ -182,7 +182,7 @@ async function routeOnce() {
 // ---------- home ----------
 async function loadProperties() {
   const {data, error} = await sb.from('properties')
-    .select('*, alarms(*), tenants(lease_end,vacate_date), inspections(inspection_date), teams(name)').eq('resident_added', false).order('street');
+    .select('*, alarms(*), tenants(lease_end,vacate_date), inspections(inspection_date), teams(name), assignee:profiles!properties_assigned_to_fkey(name,email)').eq('resident_added', false).order('street');
   fail(error); return data;
 }
 async function home() {
@@ -216,29 +216,35 @@ function propTable(rows) {
 }
 
 // ---------- properties ----------
-async function myTeams() { const {data} = await sb.from('teams').select('id,name').in('id', (await sb.from('team_members').select('team_id').eq('user_id', me.id)).data.map(r => r.team_id)); return data || []; }
+async function myTeams() { const {data} = await sb.from('team_members').select('role, teams(id,name,personal)').eq('user_id', me.id); return (data || []).filter(r => r.teams).map(r => ({...r.teams, role: r.role})); }
+async function teamPeople(ids) { if (!ids.length) return []; const {data} = await sb.from('team_members').select('team_id, user_id, role, profiles(name,email)').in('team_id', ids); return data || []; }
+const personName = x => x?.profiles?.name || x?.profiles?.email || '';
+function scopePref(v) { try { if (v) localStorage.setItem('samScope', v); return localStorage.getItem('samScope') || 'mine'; } catch (e) { return v || 'mine'; } }
 function viewPref(v) { try { if (v) localStorage.setItem('samView', v); return localStorage.getItem('samView') || 'gallery'; } catch (e) { return v || 'gallery'; } }
 function propGallery(rows, urls) {
   return `<div class="gallery">${rows.map(({p, d}) => {
     const st = p.alarms.map(a => alarmIssues(a).status);
     return `<a class="gcard" href="#/property/${p.id}">${urls[p.photo_path] ? `<img src="${urls[p.photo_path]}" alt="" loading="lazy">` : PHOTO_ICON}
-      <div class="gbody"><b>${esc(p.street)}</b><div class="small muted">${esc([p.suburb, p.postcode].filter(Boolean).join(' '))}</div>
+      <div class="gbody"><b>${esc(p.street)}</b><div class="small muted">${esc([p.suburb, p.postcode].filter(Boolean).join(' '))}${p.assignee ? ' · ' + esc(p.assignee.name || p.assignee.email) : ''}</div>
       <div class="row" style="margin-top:8px;gap:6px">${duePill(d)} ${st.includes('bad') ? '<span class="pill bad">alarm problem</span>' : st.includes('warn') ? '<span class="pill warn">info missing</span>' : p.alarms.length ? `<span class="pill ok">${p.alarms.length} alarms OK</span>` : '<span class="pill">no alarms</span>'}</div></div></a>`;
   }).join('')}</div>`;
 }
 async function properties() {
   const props = await loadProperties(); const urls = await photoUrls(props.map(p => p.photo_path));
   const draw = () => { const q = ($('#search')?.value || '').toLowerCase(), v = viewPref();
-    const rows = props.filter(p => addr(p).toLowerCase().includes(q)).map(p => ({p, d: nextDue(p)}));
+    const mine = scopePref() === 'mine', rows = props.filter(p => (!mine || p.assigned_to === me.id) && addr(p).toLowerCase().includes(q)).map(p => ({p, d: nextDue(p)}));
     $('#plist').innerHTML = !props.length ? '<p class="muted">No properties yet. Add one, or join your team from the Teams page.</p>'
+      : !rows.length ? `<p class="muted">${mine && !q ? 'No properties are assigned to you. Click Whole team to see the rest of your team\'s properties.' : 'No properties match.'}</p>`
       : v === 'gallery' ? propGallery(rows, urls) : propTable(rows);
-    document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('g', b.dataset.view !== v)); };
+    document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('g', b.dataset.view !== v));
+    document.querySelectorAll('[data-scope]').forEach(b => b.classList.toggle('g', b.dataset.scope !== scopePref())); };
   $('#main').innerHTML = `<div class="spread"><h1>Properties</h1><button class="btn o" onclick="propertyForm()">Add property</button></div>
     <div class="spread" style="margin-bottom:12px"><input id="search" placeholder="Search by address…" style="max-width:360px">
-    <div class="row"><button class="btn s" data-view="gallery">▦ Gallery</button><button class="btn s" data-view="list">☰ List</button></div></div>
+    <div class="row"><button class="btn s" data-scope="mine">Mine</button><button class="btn s" data-scope="team">Whole team</button><span style="width:10px"></span><button class="btn s" data-view="gallery">▦ Gallery</button><button class="btn s" data-view="list">☰ List</button></div></div>
     <div id="plist"></div>`;
   $('#search').oninput = draw;
   document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { viewPref(b.dataset.view); draw(); });
+  document.querySelectorAll('[data-scope]').forEach(b => b.onclick = () => { scopePref(b.dataset.scope); draw(); });
   draw();
 }
 async function propertyForm(p = {}) {
@@ -252,9 +258,12 @@ async function propertyForm(p = {}) {
     <label>Bedrooms<input name="bedrooms" type="number" min="0" value="${esc(p.bedrooms)}"></label>
     <label>Storeys<input name="storeys" type="number" min="1" value="${esc(p.storeys)}"></label>
     <label>Owner name (for certificates)<input name="owner_name" value="${esc(p.owner_name)}"></label>
-    <label>Team (who else can see it)<select name="team_id"><option value="">Just me</option>${teams.map(t => `<option value="${t.id}" ${t.id === p.team_id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
+    <label>Team<select name="team_id" onchange="fillAssign(this.value)">${teams.length ? '' : '<option value="">My properties</option>'}${teams.map(t => `<option value="${t.id}" ${t.id === p.team_id || (!p.team_id && t.personal) ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
+    <label>Assigned to<select name="assigned_to" id="assign"></select></label>
     <label class="wide">Access notes<textarea name="access_notes">${esc(p.access_notes)}</textarea></label>
     <div class="wide row"><button class="btn o">Save</button><a class="btn g" href="#/${p.id ? 'property/' + p.id : 'properties'}">Cancel</a></div></form></div>`;
+  window._teams = teams; window._people = await teamPeople(teams.map(t => t.id)); window._assigned = p.assigned_to || me.id;
+  fillAssign($('#pf').team_id.value);
   $('#pf').onsubmit = async e => {
     e.preventDefault(); const d = formData(e.target);
     if (!p.id) {
@@ -268,7 +277,7 @@ async function propertyForm(p = {}) {
   };
 }
 async function property(id) {
-  const {data: p, error} = await sb.from('properties').select('*, alarms(*), tenants(*), inspections(*, profiles(name)), teams(name)').eq('id', id).single(); fail(error);
+  const {data: p, error} = await sb.from('properties').select('*, alarms(*), tenants(*), inspections(*, profiles(name)), teams(name), assignee:profiles!properties_assigned_to_fkey(name,email)').eq('id', id).single(); fail(error);
   p.alarms.sort((a, b) => a.location.localeCompare(b.location));
   p.inspections.sort((a, b) => b.inspection_date.localeCompare(a.inspection_date));
   const d = nextDue(p), est = p.bedrooms != null && p.storeys != null ? Math.max(1, +p.bedrooms + +p.storeys) : null, estR = est && `${est}–${est + 1}`;
@@ -283,7 +292,8 @@ async function property(id) {
       <div><div class="muted small">Last check</div>${d.last ? fmt(d.last) : '–'}</div>
       <div><div class="muted small">Details</div>${esc([p.property_type, p.bedrooms != null && p.bedrooms + ' bed', p.storeys && p.storeys + ' storey'].filter(Boolean).join(' · ') || '–')}</div>
       <div><div class="muted small">Owner</div>${esc(p.owner_name || '–')}</div>
-      <div><div class="muted small">Team</div>${esc(p.teams?.name || 'Just me')}</div></div>
+      <div><div class="muted small">Team</div>${esc(p.teams?.name || 'My properties')}</div>
+      <div><div class="muted small">Assigned to</div>${esc(p.assignee?.name || p.assignee?.email || 'Nobody')}</div></div>
       ${p.access_notes ? `<p class="pre small"><b>Access:</b> ${esc(p.access_notes)}</p>` : ''}</div>
 
     <div class="spread"><h2>Smoke alarms (${p.alarms.length})</h2></div>
@@ -308,7 +318,7 @@ async function property(id) {
     ${p.inspections.length ? `<table><tr><th>Date</th><th>Result</th><th>By</th><th>Notes</th></tr>${p.inspections.map(i => `<tr>
       <td>${fmt(i.inspection_date)}</td><td><span class="pill ${i.assessment === 'Compliant' ? 'ok' : 'bad'}">${esc(i.assessment)}</span>${i.inspector_override ? ' <span class="small muted">(override)</span>' : ''}</td>
       <td>${esc(i.profiles?.name || '')}<div class="small muted">${i.check_type === 'licensed' ? 'Electrician' : 'Manager check'}</div></td><td class="small pre">${esc(i.notes || '')}</td></tr>`).join('')}</table>` : '<p class="muted">No checks recorded yet.</p>'}
-    <p style="margin-top:30px"><button class="btn s r" onclick="deleteProperty()">Delete property</button></p>`;
+    ${(await myTeams()).some(t => t.id === p.team_id && t.role === 'leader') || (!p.team_id && p.user_id === me.id) ? '<p style="margin-top:30px"><button class="btn s r" onclick="deleteProperty()">Delete property</button></p>' : ''}`;
 }
 async function propertyPhoto(input) {
   const f = input.files[0]; if (!f) return; toast('Uploading photo…');
@@ -533,18 +543,20 @@ async function quiz(mid) {
 
 // ---------- teams ----------
 async function teams() {
-  const {data: mine} = await sb.from('team_members').select('team_id, teams(id,name,public_name)').eq('user_id', me.id);
+  const {data: mine} = await sb.from('team_members').select('team_id, role, teams(id,name,public_name,personal)').eq('user_id', me.id);
   const ids = mine.map(m => m.team_id);
-  const {data: members} = ids.length ? await sb.from('team_members').select('team_id, user_id, profiles(name,email)').in('team_id', ids) : {data: []};
+  const members = await teamPeople(ids);
   const {data: sent} = ids.length ? await sb.from('team_invites').select('*').in('team_id', ids) : {data: []};
   const {data: inv} = await sb.from('team_invites').select('team_id, teams(name)').ilike('email', me.email);
   const invites = inv.filter(i => !ids.includes(i.team_id));
-  $('#main').innerHTML = `<h1>Teams</h1><p class="muted">Put properties in a team and everyone in it can see and check them.</p>
+  $('#main').innerHTML = `<h1>Teams</h1><p class="muted">Everyone in a team can see and check its properties and invite people. Team leaders can also remove people, change roles, reassign and delete properties, and edit the team's public name.</p>
     ${invites.map(i => `<div class="box spread"><span>You've been invited to join <b>${esc(i.teams?.name)}</b></span><button class="btn o" onclick="acceptInvite('${i.team_id}')">Join team</button></div>`).join('')}
     ${mine.map(m => `<div class="box"><div class="spread"><h2 style="margin:0" data-team="${m.team_id}">${esc(m.teams.name)}</h2><button class="btn s g" onclick="leaveTeam('${m.team_id}')">Leave team</button></div>
-      <p>${members.filter(x => x.team_id === m.team_id).map(x => `<span class="pill">${esc(x.profiles?.name || x.profiles?.email)}</span>`).join(' ')}</p>
+      <table style="margin-top:10px">${members.filter(x => x.team_id === m.team_id).map(x => `<tr><td><b>${esc(personName(x))}</b>${x.user_id === me.id ? ' <span class="small muted">(you)</span>' : ''}</td>
+        <td><span class="pill ${x.role === 'leader' ? 'ok' : ''}">${x.role === 'leader' ? 'Team leader' : 'Property manager'}</span></td>
+        <td style="text-align:right">${m.role === 'leader' ? `<button class="btn s g" onclick="setRole('${m.team_id}','${x.user_id}','${x.role === 'leader' ? 'manager' : 'leader'}')">${x.role === 'leader' ? 'Make property manager' : 'Make team leader'}</button>${x.user_id !== me.id ? ` <button class="btn s g" onclick="removeMember('${m.team_id}','${x.user_id}')">Remove</button>` : ''}` : ''}</td></tr>`).join('')}</table>
       ${sent.filter(s => s.team_id === m.team_id).map(s => `<span class="pill warn">Invited: ${esc(s.email)} <a href="#" title="Email them the invite again" onclick="sendInvite('${s.team_id}','${esc(s.email)}');return false">✉</a> <a href="#" title="Cancel invite" onclick="cancelInvite('${s.team_id}','${esc(s.email)}');return false">✕</a></span>`).join(' ')}
-      <form class="row" style="margin-top:10px" onsubmit="savePublicName(event,'${m.team_id}')"><input name="pname" value="${esc(m.teams.public_name || '')}" placeholder="Public name shown on checks, e.g. Ray White Ashgrove" style="max-width:320px"><button class="btn s g">Save public name</button></form>
+      ${m.role !== 'leader' ? '' : `<form class="row" style="margin-top:10px" onsubmit="savePublicName(event,'${m.team_id}')"><input name="pname" value="${esc(m.teams.public_name || '')}" placeholder="Public name shown on checks, e.g. Ray White Ashgrove" style="max-width:320px"><button class="btn s g">Save public name</button></form>`}
       <form class="row" style="margin-top:10px" onsubmit="invite(event,'${m.team_id}')"><input type="email" name="email" placeholder="Colleague's email" required style="max-width:280px"><button class="btn s">Invite</button></form></div>`).join('')}
     <div class="box"><form class="row" onsubmit="newTeam(event)"><input name="name" placeholder="New team name, e.g. Smith Realty – Rentals" required style="max-width:320px"><button class="btn o">Create team</button></form></div>`;
 }
@@ -576,7 +588,16 @@ function inviteEmail(team, email) {
 }
 async function cancelInvite(team, email) { const {error} = await sb.from('team_invites').delete().eq('team_id', team).eq('email', email); fail(error); route(); }
 async function acceptInvite(team) { const {error} = await sb.rpc('accept_invite', {p_team: team}); fail(error); toast('You joined the team.'); route(); }
-async function leaveTeam(team) { if (!confirm('Leave this team? You will no longer see its properties.')) return; const {error} = await sb.from('team_members').delete().eq('team_id', team).eq('user_id', me.id); fail(error); route(); }
+async function leaveTeam(team) { if (!confirm('Leave this team? You will no longer see its properties.')) return; const {error} = await sb.rpc('remove_member', {team, member: me.id}); fail(error); toast('You have left the team.'); route(); }
+async function removeMember(team, member) { if (!confirm('Remove this person from the team? Properties assigned to them will become unassigned.')) return; const {error} = await sb.rpc('remove_member', {team, member}); fail(error); toast('Removed.'); route(); }
+async function setRole(team, member, new_role) { const {error} = await sb.rpc('set_member_role', {team, member, new_role}); fail(error); toast('Role changed.'); route(); }
+function fillAssign(team) {
+  const s = $('#assign'); if (!s) return;
+  const t = (window._teams || []).find(x => x.id === team), people = (window._people || []).filter(x => x.team_id === team);
+  s.innerHTML = people.map(x => `<option value="${x.user_id}" ${x.user_id === window._assigned ? 'selected' : ''}>${esc(personName(x))}</option>`).join('') || `<option value="${me.id}">${esc(me.name || me.email)}</option>`;
+  if (!people.some(x => x.user_id === window._assigned)) s.value = me.id;
+  s.disabled = !(t?.role === 'leader'); s.title = s.disabled ? 'Only a team leader can assign properties to someone else' : '';
+}
 
 // ---------- help ----------
 async function help() {
