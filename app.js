@@ -162,7 +162,14 @@ function openApp(h = '#/home') {
   viewingSite = false; $('#public').classList.add('hidden'); $('#shell').classList.remove('hidden');
   if (location.hash === h) route(); else location.hash = h;
 }
+// one page at a time: if the menu is clicked while a page is still loading, load the newest page once it finishes
+let routing = false, routeAgain = false;
 async function route() {
+  if (routing) { routeAgain = true; $('#main').innerHTML = '<p class="muted">Loading…</p>'; return; }
+  routing = true;
+  try { do { routeAgain = false; await routeOnce(); } while (routeAgain); } finally { routing = false; }
+}
+async function routeOnce() {
   document.body.classList.remove('open');
   const [page, id] = location.hash.replace(/^#\/?/, '').split('/');
   const p = page || 'home';
