@@ -226,13 +226,14 @@ async function property(id) {
       <div><div class="muted small">Team</div>${esc(p.teams?.name || 'Just me')}</div></div>
       ${p.access_notes ? `<p class="pre small"><b>Access:</b> ${esc(p.access_notes)}</p>` : ''}</div>
 
-    <div class="spread"><h2>Smoke alarms (${p.alarms.length}${est ? ' of about ' + est + ' needed' : ''})</h2><div class="row"><button class="btn s" onclick="alarmForm()">Add alarm</button>${p.alarms.length ? '<button class="btn s g" onclick="copyAlarm()">Copy alarm</button>' : ''}</div></div>
+    <div class="spread"><h2>Smoke alarms (${p.alarms.length}${est ? ' of about ' + est + ' needed' : ''})</h2></div>
     ${est && p.alarms.length < est ? `<p class="pill warn">This property may need at least ${est} alarms (bedrooms + storeys + 1). This is an estimate only.</p>` : ''}
     ${p.alarms.length ? `<table><tr><th>Location</th><th>Type / power</th><th>Expires</th><th>Status</th><th></th></tr>${p.alarms.map(a => `<tr>
       <td><b>${esc(a.location)}</b><div class="small muted">${esc([a.brand, a.model].filter(Boolean).join(' '))}</div></td>
       <td>${esc(a.alarm_type || '?')}<div class="small muted">${esc(a.power_source || '')}</div></td>
       <td>${fmt(a.expiry_date)}</td><td>${alarmPill(a)}</td>
       <td><button class="btn s g" onclick="alarmForm('${a.id}')">Edit</button></td></tr>`).join('')}</table>` : '<p class="muted">No alarms added yet.</p>'}
+    <div class="row" style="margin-top:12px"><button class="btn s" onclick="alarmForm()">Add alarm</button>${p.alarms.length ? '<button class="btn s g" onclick="copyAlarm()">Copy alarm</button>' : ''}</div>
     <div id="aform" style="margin-top:12px"></div>
 
     <div class="spread"><h2>Tenants</h2><button class="btn s" onclick="tenantForm()">Add tenant</button></div>
