@@ -2,12 +2,16 @@
 -- in the Framer module order. Quiz questions and quiz passes move with their module.
 begin;
 -- old order: 4 test & clean, 5 batteries, 6 staying safe  ->  new: 4 staying safe, 5 test & clean, 6 batteries
+do $$ begin
+if (select title from modules where id=4) not ilike 'Staying safe%' then  -- only reorder once
 insert into modules (id, title, published) values (104,'tmp',false),(105,'tmp',false),(106,'tmp',false) on conflict do nothing;
 update questions set module_id = case module_id when 4 then 105 when 5 then 106 when 6 then 104 else module_id end where module_id in (4,5,6);
 update quiz_attempts set module_id = case module_id when 4 then 105 when 5 then 106 when 6 then 104 else module_id end where module_id in (4,5,6);
 update questions set module_id = module_id - 100 where module_id > 100;
 update quiz_attempts set module_id = module_id - 100 where module_id > 100;
 delete from modules where id > 100;
+end if;
+end $$;
 update modules set title=$q$Why smoke alarms matter (and the law)$q$, summary=$q$What Queensland's smoke alarm laws require, who is responsible, and why your quick checks matter.$q$, content=$q$Most fatal house fires happen at night while people are asleep. Smoke, not flames, is what kills, and a working alarm gives people the minutes they need to get out.
 Queensland has the strictest smoke alarm laws in Australia. Since 1 January 2022, every rental property, and every home that is sold or leased, must have alarms that meet the new standard. From 1 January 2027 every home in Queensland must comply.
 
