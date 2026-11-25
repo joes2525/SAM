@@ -11,26 +11,26 @@ delete from modules where id > 100;
 update modules set title=$q$Why smoke alarms matter (and the law)$q$, summary=$q$What Queensland's smoke alarm laws require, who is responsible, and why your quick checks matter.$q$, content=$q$Most fatal house fires happen at night while people are asleep. Smoke, not flames, is what kills, and a working alarm gives people the minutes they need to get out.
 Queensland has the strictest smoke alarm laws in Australia. Since 1 January 2022, every rental property, and every home that is sold or leased, must have alarms that meet the new standard. From 1 January 2027 every home in Queensland must comply.
 
-![Timeline: 1 Jan 2017 law starts for new homes and major renovations; 1 Jan 2022 rentals and sales; 1 Jan 2027 every Queensland home.](https://framerusercontent.com/images/s29kPRi98Zv6U2qK63Hg2uDKwTw.svg)
+![Timeline: 1 Jan 2017 law starts for new homes and major renovations; 1 Jan 2022 rentals and sales; 1 Jan 2027 every Queensland home.](img/course/s29kPRi98Zv6U2qK63Hg2uDKwTw.svg)
 
 ### Who does what
-![Who is responsible: owner/lessor tests and cleans within 30 days before a tenancy, replaces flat batteries and failed or 10-year-old alarms; tenant tests and cleans every 12 months, replaces flat batteries in older alarms and reports faults; nobody removes an alarm or battery except to replace it.](https://framerusercontent.com/images/ImOskyXOi0C15BZICvU84JjfNo.svg)
+![Who is responsible: owner/lessor tests and cleans within 30 days before a tenancy, replaces flat batteries and failed or 10-year-old alarms; tenant tests and cleans every 12 months, replaces flat batteries in older alarms and reports faults; nobody removes an alarm or battery except to replace it.](img/course/ImOskyXOi0C15BZICvU84JjfNo.svg)
 
 - **The lessor (owner)**, usually through you as property manager, must test and clean every alarm within **30 days before** a tenancy starts or is renewed, replace flat or nearly flat removable batteries, and replace any alarm that fails or is 10 or more years old
 - **The tenant** should test and clean the alarms at least once every 12 months, replace flat batteries in older alarms, and tell you about any fault.
 
-![Timeline of a tenancy: pre-tenancy test within 30 days before move-in, quick checks at routine and exit inspections, then another pre-tenancy test for the next lease.](https://framerusercontent.com/images/6ez7AzLovaxI7lipsdguMKmY6I.svg)
+![Timeline of a tenancy: pre-tenancy test within 30 days before move-in, quick checks at routine and exit inspections, then another pre-tenancy test for the next lease.](img/course/6ez7AzLovaxI7lipsdguMKmY6I.svg)
 
 ### Official sources
-- Queensland Fire Department: smoke alarms
-- Queensland Fire Department: smoke alarm FAQs
-- Residential Tenancies Authority: smoke alarms in rentals$q$, key_points=$q$- Smoke, not flames, causes most fire deaths
+- [Queensland Fire Department: smoke alarms](https://www.fire.qld.gov.au/prepare/fire/smoke-alarms)
+- [Queensland Fire Department: smoke alarm FAQs](https://fire.qld.gov.au/prepare/fire/smoke-alarms/faq)
+- [Residential Tenancies Authority: smoke alarms in rentals](https://www.rta.qld.gov.au/during-a-tenancy/maintenance/smoke-alarms)$q$, key_points=$q$- Smoke, not flames, causes most fire deaths
 - Rentals have had to meet the new rules since 1 Jan 2022
 - Test and clean within 30 days before a tenancy starts or renews
 - Tenants test and clean at least every 12 months
 - Your quick checks catch problems early and create a record$q$, example=$q$Sam, a property manager, does a routine inspection in March. The lease renews in July. During the walk-through she presses each test button and notices the bedroom 2 alarm is silent. She logs it, the owner arranges a replacement, and in July the pre-tenancy test passes first time with no scramble.$q$, diagram_caption=null where id=1;
 update modules set title=$q$The right alarm: type, standard and power$q$, summary=$q$How to tell if an alarm meets Queensland's requirements just by looking at it.$q$, content=$q$Every required alarm must tick **all** of these boxes:
-![Back of a smoke alarm label showing where to find the type (photoelectric), standard (AS 3786-2014), power (10-year sealed lithium battery) and manufacture date.](https://framerusercontent.com/images/FOcu9AWmNcdNJ736xyHLBohlkc.svg)
+![Back of a smoke alarm label showing where to find the type (photoelectric), standard (AS 3786-2014), power (10-year sealed lithium battery) and manufacture date.](img/course/FOcu9AWmNcdNJ736xyHLBohlkc.svg)
 
 1. **Photoelectric.** Photoelectric alarms detect visible smoke from smouldering fires, the most common type of fatal house fire. Ionisation alarms are no longer accepted and must be replaced. The type is usually printed on the back or side of the alarm.
 2. **AS 3786-2014.** The alarm must comply with Australian Standard AS 3786-2014. Look for this marking on the alarm body. Older standards such as AS 3786-1993 don’t meet the rules.
@@ -38,11 +38,11 @@ update modules set title=$q$The right alarm: type, standard and power$q$, summar
 4. **Interconnected.** Every required alarm must be connected to every other one, so when one sounds, they all sound. This can be wired or wireless.
 5. **Not expired.** Every alarm must be less than 10 years old from its manufacture date.
 
-![Pass or fail table: photoelectric passes, ionisation fails; AS 3786-2014 passes, older standards fail; mains or 10-year sealed battery passes, replaceable 9V only fails; interconnected passes, standalone fails; under 10 years passes, 10 years or more fails.](https://framerusercontent.com/images/YNqeoUIpjUTNfvYNNf6AbbZdij0.svg)
+![Pass or fail table: photoelectric passes, ionisation fails; AS 3786-2014 passes, older standards fail; mains or 10-year sealed battery passes, replaceable 9V only fails; interconnected passes, standalone fails; under 10 years passes, 10 years or more fails.](img/course/YNqeoUIpjUTNfvYNNf6AbbZdij0.svg)
 
 ### Official sources
-- Queensland Fire Department: what makes an alarm compliant
-- Queensland Fire Department: smoke alarm FAQs$q$, key_points=$q$- Must be photoelectric
+- [Queensland Fire Department: what makes an alarm compliant](https://www.fire.qld.gov.au/prepare/fire/smoke-alarms)
+- [Queensland Fire Department: smoke alarm FAQs](https://fire.qld.gov.au/prepare/fire/smoke-alarms/faq)$q$, key_points=$q$- Must be photoelectric
 - Must be marked AS 3786-2014
 - Hardwired or 10-year non-removable battery
 - All required alarms interconnected
@@ -53,11 +53,11 @@ update modules set title=$q$Where alarms must go$q$, summary=$q$Required locatio
 - In the **hallway** that connects bedrooms to the rest of the home. If there’s no hallway, between the bedrooms and the rest of the storey.
 - On a storey with no bedrooms, on the **most likely path out**.
 
-![Two-storey townhouse: upstairs an alarm in each of three bedrooms and one in the hallway; downstairs, with no bedrooms, one alarm in the entry on the path to the front door. Five alarms, all interconnected.](https://framerusercontent.com/images/05mOwK3UZpHOSy5oKXOKEjUYTkU.svg)
+![Two-storey townhouse: upstairs an alarm in each of three bedrooms and one in the hallway; downstairs, with no bedrooms, one alarm in the entry on the path to the front door. Five alarms, all interconnected.](img/course/05mOwK3UZpHOSy5oKXOKEjUYTkU.svg)
 
-![Two-bedroom, two-bathroom flat: one alarm in each bedroom and one in the hallway between the bedrooms and the living area. Three alarms, all interconnected.](https://framerusercontent.com/images/Hydfz6fagUhoMTV6dHpZbRbtHCY.svg)
+![Two-bedroom, two-bathroom flat: one alarm in each bedroom and one in the hallway between the bedrooms and the living area. Three alarms, all interconnected.](img/course/Hydfz6fagUhoMTV6dHpZbRbtHCY.svg)
 
-![Single-storey home with two bedrooms and a study with a sofa bed: alarms in both bedrooms, the study and the hallway. No alarm in the open-plan kitchen above the cooktop.](https://framerusercontent.com/images/cCUnksst25uCaQGVRuRmdDAVy68.svg)
+![Single-storey home with two bedrooms and a study with a sofa bed: alarms in both bedrooms, the study and the hallway. No alarm in the open-plan kitchen above the cooktop.](img/course/cCUnksst25uCaQGVRuRmdDAVy68.svg)
 
 ### Best position
 On the ceiling, as close to the centre of the room or hallway as practical.
@@ -68,7 +68,7 @@ On the ceiling, as close to the centre of the room or hallway as practical.
 - Ceiling fans: at least 400 mm from the blades.
 - Sloping ceilings: within 500 mm of the highest point, but not within 300 mm of the apex.
 
-![Clearances: keep alarms 300 mm from walls and light fittings, 400 mm from air-conditioning vents and ceiling fan blades. On a sloping ceiling, within 500 mm of the highest point but not within 300 mm of the apex.](https://framerusercontent.com/images/d4XxZOw2ATEsAOmQAEvEOdS9C9E.svg)
+![Clearances: keep alarms 300 mm from walls and light fittings, 400 mm from air-conditioning vents and ceiling fan blades. On a sloping ceiling, within 500 mm of the highest point but not within 300 mm of the apex.](img/course/d4XxZOw2ATEsAOmQAEvEOdS9C9E.svg)
 
 ### What counts as a bedroom
 The law says every bedroom needs an alarm, but it doesn’t say what a bedroom is. Across the smoke alarm industry, a room is generally treated as a bedroom if it’s **big enough for a single bed, has a door and has a window**. It doesn’t matter what the plan or listing calls it, and a room someone already sleeps in counts too.
@@ -101,20 +101,20 @@ update modules set title=$q$Staying safe: ladders and electrical$q$, summary=$q$
 - Never stand on chairs, tables or beds.
 - Check your agency’s work health and safety policy for any extra rules.
 
-![Step ladder safety: use a test pole where you can; ladder fully open and locked on firm, level ground; three points of contact; never stand on the top step or cap, don’t overreach, never stand on furniture.](https://framerusercontent.com/images/kT1rmfWz88qFhNksvpL7RIsG9o.svg)
+![Step ladder safety: use a test pole where you can; ladder fully open and locked on firm, level ground; three points of contact; never stand on the top step or cap, don’t overreach, never stand on furniture.](img/course/kT1rmfWz88qFhNksvpL7RIsG9o.svg)
 
 ### Electrical safety
 - Hardwired alarms are connected to 240V mains power. Only a licensed electrician can install, remove or replace them.
 - Never open an alarm, pull it off its base or touch exposed wiring.
 - If an alarm is hanging off the ceiling, has scorch marks or smells of burning, don’t touch it. Note it and arrange an electrician urgently.
 
-![If an alarm is hanging off the ceiling, has scorch marks or smells of burning, don’t touch it: keep people away, note it and arrange an electrician urgently.](https://framerusercontent.com/images/xSOTIgfcbEgTC52SVUeOsIOrBf4.svg)
+![If an alarm is hanging off the ceiling, has scorch marks or smells of burning, don’t touch it: keep people away, note it and arrange an electrician urgently.](img/course/xSOTIgfcbEgTC52SVUeOsIOrBf4.svg)
 
 ### Occupants
 Let everyone in the house know before you test. Protect your own hearing: wear ear plugs or ear muffs while testing.
 ### Official sources
-- Queensland Government: buying and installing smoke alarms
-- Queensland Fire Department: smoke alarm FAQs$q$, key_points=$q$- Use a test pole where possible
+- [Queensland Government: buying and installing smoke alarms](https://qld.gov.au/law/your-rights/consumer-rights-complaints-and-scams/buying-products-and-services/buying-products/buying-smoke-alarms)
+- [Queensland Fire Department: smoke alarm FAQs](https://fire.qld.gov.au/prepare/fire/smoke-alarms/faq)$q$, key_points=$q$- Use a test pole where possible
 - Ladder fully open, on level ground, 3 points of contact
 - Never stand on the top step or on furniture
 - Only licensed electricians touch hardwired alarms
@@ -130,17 +130,17 @@ Tell anyone home, and neighbours in attached units, that you’re about to test 
 6. **Battery.** If the alarm has a replaceable battery, including a 9V backup in a hardwired alarm, and it’s flat, chirping or the date on it is more than 6 months old, replace it and write today’s date on the new one. See Module 6 for how.
 7. **Record it.** Log the result for each alarm before you leave.
 
-![Six steps: look, read the label, press test for 3 to 5 seconds, listen for the other alarms, clean with a vacuum or soft brush, record each alarm.](https://framerusercontent.com/images/P2YH7xndoikAQ0GknEw0PQjRVCs.svg)
+![Six steps: look, read the label, press test for 3 to 5 seconds, listen for the other alarms, clean with a vacuum or soft brush, record each alarm.](img/course/P2YH7xndoikAQ0GknEw0PQjRVCs.svg)
 
-![Interconnection check: press one alarm and every alarm should sound. If one stays silent, record its interconnection as not passed.](https://framerusercontent.com/images/ZAajNFjGVrIakgCBPjM0X4lQ.svg)
+![Interconnection check: press one alarm and every alarm should sound. If one stays silent, record its interconnection as not passed.](img/course/ZAajNFjGVrIakgCBPjM0X4lQ.svg)
 
 ### Don’t
 - Don’t use smoke, flame or a lighter to test, unless the manufacturer’s instructions specifically say to.
 - Don’t open or touch the wiring of a hardwired alarm. Only a licensed electrician can install or replace those.
 
 ### Official sources
-- Queensland Fire Department: smoke alarm FAQs
-- Residential Tenancies Authority: smoke alarms in rentals$q$, key_points=$q$- Warn occupants before testing
+- [Queensland Fire Department: smoke alarm FAQs](https://fire.qld.gov.au/prepare/fire/smoke-alarms/faq)
+- [Residential Tenancies Authority: smoke alarms in rentals](https://www.rta.qld.gov.au/during-a-tenancy/maintenance/smoke-alarms)$q$, key_points=$q$- Warn occupants before testing
 - Look, read the label, press, listen, clean, log
 - All alarms must sound together
 - No smoke or flame tests
@@ -151,7 +151,7 @@ Every smoke alarm must be replaced within 10 years of its manufacture date, even
 The manufacture date is printed on the back or side of the alarm, often marked "MFD" or "Date of manufacture", or as a stamp like 03/2019. Some alarms also print a "Replace by" date. If only the year is shown, assume January of that year.
 ### Working it out
 Replace-by date = manufacture date + 10 years. Made March 2019 means replace by March 2029.
-![Timeline: an alarm made March 2019 must be replaced by March 2029. In November 2026 it passes; from March 2028 it’s in its last 12 months and should be flagged.](https://framerusercontent.com/images/zV0jnHTjQfqv3EAkS8lde52CRns.svg)
+![Timeline: an alarm made March 2019 must be replaced by March 2029. In November 2026 it passes; from March 2028 it’s in its last 12 months and should be flagged.](img/course/zV0jnHTjQfqv3EAkS8lde52CRns.svg)
 
 ### Batteries
 - Compliant alarms are hardwired or have a sealed 10-year battery, so the whole alarm is replaced at end of life.
@@ -159,7 +159,7 @@ Replace-by date = manufacture date + 10 years. Made March 2019 means replace by 
 - Never touch the wiring or the base of a hardwired alarm. If an alarm is hanging down, loose or damaged, don’t touch it. Arrange an electrician.
 - Older alarms with a removable battery don’t meet the rules. Until they’re replaced, a flat or nearly flat battery must be replaced. A chirping alarm usually means a low battery.
 
-![Power sources: hardwired with backup battery and sealed 10-year battery alarms are compliant and replaced whole after 10 years; removable 9V battery only alarms don’t meet the rules.](https://framerusercontent.com/images/aGPdEe6UGZjlhbHIrV6ms5WxBxI.svg)
+![Power sources: hardwired with backup battery and sealed 10-year battery alarms are compliant and replaced whole after 10 years; removable 9V battery only alarms don’t meet the rules.](img/course/aGPdEe6UGZjlhbHIrV6ms5WxBxI.svg)
 
 ### Date every battery
 When you fit a new battery, write the date on it with a permanent marker. A small white sticker with the date written on it is easier to read next time. Then anyone checking the alarm can see straight away how old the battery is.
@@ -169,8 +169,8 @@ At each check, replace any replaceable battery that is more than 6 months old, e
 ### Flag early
 If an alarm will expire within the next 12 months, note it on your check so the owner can plan a replacement.
 ### Official sources
-- Queensland Fire Department: smoke alarms
-- Queensland Fire Department: smoke alarm FAQs$q$, key_points=$q$- Replace within 10 years of manufacture
+- [Queensland Fire Department: smoke alarms](https://www.fire.qld.gov.au/prepare/fire/smoke-alarms)
+- [Queensland Fire Department: smoke alarm FAQs](https://fire.qld.gov.au/prepare/fire/smoke-alarms/faq)$q$, key_points=$q$- Replace within 10 years of manufacture
 - Look for "MFD" or a date stamp on the back or side
 - Year only? Assume January
 - 9V backup in a hardwired alarm? You can change it, but never touch the wiring
@@ -189,7 +189,7 @@ update modules set title=$q$Recording the check and what to do next$q$, summary=
 - **Minor fix needed:** something needs attention but the home is still protected, such as an alarm expiring within 12 months, or a flat battery in an older alarm that you replaced on the spot.
 - **Full inspection needed:** something serious, such as a missing or failed alarm, no interconnection, an ionisation or expired alarm, or a damaged hardwired alarm.
 
-![Flowchart: if every alarm is present, compliant and passed, the result is All OK. If any alarm is missing or failed, not interconnected, ionisation or expired, or a damaged hardwired alarm, it’s Full inspection needed. Otherwise it’s Minor fix needed.](https://framerusercontent.com/images/L60k2Agj07RO6LzwDFqkLmZDVhM.svg)
+![Flowchart: if every alarm is present, compliant and passed, the result is All OK. If any alarm is missing or failed, not interconnected, ionisation or expired, or a damaged hardwired alarm, it’s Full inspection needed. Otherwise it’s Minor fix needed.](img/course/L60k2Agj07RO6LzwDFqkLmZDVhM.svg)
 
 ### After the check
 - Full inspection needed: tell the owner the same day and arrange a qualified technician or electrician.
@@ -197,8 +197,8 @@ update modules set title=$q$Recording the check and what to do next$q$, summary=
 - Records can’t be edited after the day, so they’re a reliable history for owners, insurers and tribunals.
 
 ### Official sources
-- Residential Tenancies Authority: smoke alarms in rentals
-- Queensland Fire Department: smoke alarm FAQs$q$, key_points=$q$- Log on the day, at the property
+- [Residential Tenancies Authority: smoke alarms in rentals](https://www.rta.qld.gov.au/during-a-tenancy/maintenance/smoke-alarms)
+- [Queensland Fire Department: smoke alarm FAQs](https://fire.qld.gov.au/prepare/fire/smoke-alarms/faq)$q$, key_points=$q$- Log on the day, at the property
 - One result per alarm, plus an overall result
 - All OK / Minor fix / Full inspection
 - Serious issues: tell the owner the same day

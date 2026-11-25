@@ -16,12 +16,12 @@ const AUDIENCES = [
 // Tiny markdown: ### headings, - and 1. lists, **bold**, paragraphs
 function md(text) {
   const out = []; let list = null;
-  const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+  const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
   const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
   for (const line of (text || '').split('\n')) {
     const t = line.trim(); let m;
     if (!t) { close(); continue; }
-    if ((m = t.match(/^!\[(.*?)\]\((https?:\/\/[^)\s]+)\)$/))) { close(); out.push(`<figure class="diagram"><img src="${esc(m[2])}" alt="${esc(m[1])}" loading="lazy"></figure>`); }
+    if ((m = t.match(/^!\[(.*?)\]\(((?:https:\/\/|img\/)[^)\s]+)\)$/))) { close(); out.push(`<figure class="diagram"><img src="${esc(m[2])}" alt="${esc(m[1])}" loading="lazy"></figure>`); }
     else if ((m = t.match(/^#{2,4}\s+(.*)/))) { close(); out.push(`<h3>${inline(m[1])}</h3>`); }
     else if ((m = t.match(/^[-•]\s+(.*)/))) { if (list !== 'ul') { close(); out.push('<ul>'); list = 'ul'; } out.push(`<li>${inline(m[1])}</li>`); }
     else if ((m = t.match(/^\d+\.\s+(.*)/))) { if (list !== 'ol') { close(); out.push('<ol>'); list = 'ol'; } out.push(`<li>${inline(m[1])}</li>`); }
