@@ -12,7 +12,7 @@
 <div id="auth" class="auth hidden"></div>
 <div id="shell" class="shell hidden">
   <aside class="side">
-    <div class="brand"><span class="logo">SAM</span><div><b>SAM</b><small id="who"></small></div></div>
+    <div class="brand" onclick="openSite()" style="cursor:pointer" title="Go to the SAM website"><span class="logo">SAM</span><div><b>SAM</b><small id="who"></small></div></div>
     <button class="menu" onclick="document.body.classList.toggle('open')">☰</button>
     <nav id="nav"></nav>
     <a class="signout" href="#" onclick="signOut();return false">Sign out</a>

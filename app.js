@@ -132,7 +132,13 @@ function navItems() {
   if (me.role !== 'electrician') n.push(['course', 'SAM Academy']);
   return n.concat([['help', 'Help'], ['profile', 'Profile']]);
 }
-window.onhashchange = () => me ? route() : showPublic();
+let viewingSite = false; // logged-in user looking at the public website
+window.onhashchange = () => (me && !viewingSite) ? route() : showPublic();
+function openSite() { viewingSite = true; if (location.hash === '#/') showPublic(); else location.hash = '#/'; }
+function openApp(h = '#/home') {
+  viewingSite = false; $('#public').classList.add('hidden'); $('#shell').classList.remove('hidden');
+  if (location.hash === h) route(); else location.hash = h;
+}
 async function route() {
   document.body.classList.remove('open');
   const [page, id] = location.hash.replace(/^#\/?/, '').split('/');

@@ -32,15 +32,14 @@ function md(text) {
 function showPublic() {
   $('#shell').classList.add('hidden'); $('#auth').classList.add('hidden'); $('#public').classList.remove('hidden');
   const [page, arg] = location.hash.replace(/^#\/?/, '').split('/');
-  if (page === 'login') return showAuth('login');
-  if (page === 'signup') return showAuth('signup', arg);
-  const pages = {course: pubCourse, lesson: pubLocked, pricing: pubPricing, help: pubHelp};
+  if (page === 'login' || page === 'signup') return me ? openApp() : showAuth(page, arg);
+  const pages = {course: pubCourse, lesson: n => me ? openApp('#/lesson/' + n) : pubLocked(n), pricing: pubPricing, help: pubHelp};
   const p = pages[page] ? page : 'home';
   $('#public').innerHTML = `
     <a class="announce" href="#/signup">SAM Academy is part of SAM. Keep your smoke alarm records and certificates in SAM Register →</a>
     <header class="pnav"><a class="brand" href="#/"><span class="logo">SAM</span><b>SAM Academy</b></a>
       <nav>${[['', 'Home'], ['course', 'Course'], ['pricing', 'Pricing'], ['help', 'Help']].map(([k, v]) => `<a href="#/${k}" class="${(p === k || (p === 'home' && !k) || (p === 'lesson' && k === 'course')) ? 'on' : ''}">${v}</a>`).join('')}
-      <a class="btn o s" href="#/login">Log in / Sign up</a></nav></header>
+      ${me ? '<a class="btn o s" href="#" onclick="openApp();return false">My account</a>' : '<a class="btn o s" href="#/login">Log in / Sign up</a>'}</nav></header>
     <main id="pmain" class="pmain"></main>
     <footer class="pfoot"><p>SAM Academy, part of Smoke Alarm Maintenance (SAM). We provide training and record keeping only. Compliance decisions rest with your property manager and the owner. If you’re unsure about an alarm or whether a property complies, check with a licensed electrician.</p></footer>`;
   (p === 'home' ? pubHome : pages[p])(arg);
@@ -85,9 +84,9 @@ async function pubCourse() {
     <h2>How it works</h2><p class="lead">Complete the 7 modules, then the exam. Once you pass you can start logging checks.</p>
     <div class="steps">${[['Do the modules', 'Whenever it suits you, 1-2 hours'], ['Pass the exam', 'Get a perfect score, 15 out of 15'], ['Check Smoke alarms', 'At your routine/vacate/entry inspections']]
       .map(([t, s], i) => `<div class="step"><span>Step ${i + 1}</span><b>${t}</b><small>${s}</small></div>`).join('')}</div>
-    <div class="mods">${(mods || []).filter(m => !m.is_exam).map(m => `<a class="card mod" href="#/lesson/${m.id}"><span class="num">${m.id}</span><div><b>${esc(m.title)}</b><p>${esc(m.summary || '')}</p></div><span class="btn s g">🔒 Sign up to open</span></a>`).join('')}</div>
+    <div class="mods">${(mods || []).filter(m => !m.is_exam).map(m => `<a class="card mod" href="#/lesson/${m.id}"><span class="num">${m.id}</span><div><b>${esc(m.title)}</b><p>${esc(m.summary || '')}</p></div><span class="btn s g">${me ? 'Open' : '🔒 Sign up to open'}</span></a>`).join('')}</div>
     <div class="card band2"><h2>Done all 7?</h2><p><b>Time for the exam.</b> 15 multiple-choice questions. You need every one right. Didn’t pass? Have another go.</p>
-      <a class="btn o" href="#/signup">Start the exam</a><p class="small muted">You’ll need a free SAM account so your progress is saved.</p></div></section>`;
+      <a class="btn o" href="${me ? '#' : '#/signup'}" ${me ? 'onclick="openApp(\'#/quiz/8\');return false"' : ''}>Start the exam</a><p class="small muted">You’ll need a free SAM account so your progress is saved.</p></div></section>`;
 }
 
 // Lessons need an account: visitors are asked to sign up or log in
