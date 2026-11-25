@@ -312,11 +312,9 @@ async function delRow(table, id) { if (!confirm('Delete this?')) return; const {
 // ---------- log a check ----------
 const CHECK_QS = [
   ['q1', 'Have you checked the alarm details above are still correct?'],
-  ['q2', 'Have you read and followed the SAM guides on how to test a smoke alarm?'],
   ['q3', "Have you read the manufacturer's recommendations for these smoke alarms?"],
   ['q4', 'Is any alarm damaged, painted over, covered or blocked?'],
   ['c1', 'Are smoke alarms installed in all required locations (each storey, each bedroom, hallways connecting bedrooms, or the exit path on storeys without bedrooms)?'],
-  ['c2', 'Is every alarm marked with AS 3786-2014?'],
   ['c3', 'Is every alarm at the required minimum distance from walls, lights, fans, vents and other fixtures?'],
   ['c4', 'Were all alarms cleaned?'],
   ['c5', 'Have any batteries more than 6 months old been replaced (replaceable-battery alarms only)?'],
@@ -337,9 +335,17 @@ async function check(id) {
     ${practice ? PRACTICE_BANNER : ''}<div id="step"></div>`;
   const form = (refResult) => {
     const flags = p.alarms.map(a => ({a, r: alarmIssues(a)})).filter(x => x.r.status !== 'ok');
-    $('#step').innerHTML = `<div class="box"><b>Alarms on record (${p.alarms.length})</b>
-      ${p.alarms.length ? `<ul>${p.alarms.map(a => `<li>${esc(a.location)} – ${alarmPill(a)}</li>`).join('')}</ul>` : '<p class="pill bad">No alarms recorded. Add the alarms on the property page before logging a check.</p>'}
-      <a class="small" href="#/property/${p.id}">Update alarm details first</a></div>
+    $('#step').innerHTML = `<div class="box"><h2 style="margin-top:0">Alarms on record (${p.alarms.length})</h2>
+      ${p.alarms.length ? `<p class="small muted">Check each alarm matches what's on the ceiling. If anything is different, update it on the property page before you start.</p>
+      <table class="alarmsum"><tr><th>Location</th><th>Type</th><th>Power</th><th>Interconnected</th><th>AS 3786-2014</th><th>Made / expires</th><th>Brand / model</th><th>Status</th></tr>
+      ${[...p.alarms].sort((x, y) => x.location.localeCompare(y.location)).map(a => `<tr>
+        <td><b>${esc(a.location)}</b></td><td>${esc(a.alarm_type || '–')}</td><td>${esc(a.power_source || '–')}</td>
+        <td>${esc(a.interconnected || '–')}</td><td>${esc(a.as3786 || '–')}</td>
+        <td>${a.manufacture_year ? (a.manufacture_month ? String(a.manufacture_month).padStart(2, '0') + '/' : '') + a.manufacture_year : '–'}${a.expiry_date ? `<div class="small muted">Expires ${fmt(a.expiry_date)}</div>` : ''}</td>
+        <td>${esc([a.brand, a.model].filter(Boolean).join(' ') || '–')}</td><td>${alarmPill(a)}</td></tr>`).join('')}</table>`
+      : '<p class="pill bad">No alarms recorded. Add the alarms on the property page before logging a check.</p>'}
+      ${p.bedrooms != null && p.storeys != null && p.alarms.length < +p.bedrooms + +p.storeys + 1 ? `<p class="pill warn">${p.alarms.length} alarm(s) on record. A ${p.bedrooms}-bedroom, ${p.storeys}-storey property usually needs at least ${+p.bedrooms + +p.storeys + 1}.</p>` : ''}
+      <p><a class="btn s g" href="#/property/${p.id}">Update alarm details</a></p></div>
       <form id="cf"><div class="box"><label style="max-width:240px">Date of the check<input type="date" name="inspection_date" value="${today()}" min="${addDays(today(), -7)}" max="${today()}" required></label></div>
       ${CHECK_QS.map(([k, q]) => `<div class="q"><b>${esc(q)}</b><div class="row">${['Yes', 'No'].map(v => `<label class="opt"><input type="radio" name="${k}" value="${v}" required> ${v}</label>`).join('')}</div></div>`).join('')}
       <div class="q"><b>Your overall assessment</b>

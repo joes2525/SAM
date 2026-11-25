@@ -156,3 +156,6 @@ ul.warns li::before{content:"⚡";position:absolute;left:0}
 .q .row label.opt:has(input[value=Yes]:checked){border-color:var(--ok);background:#e3f4e7;color:var(--ok)}
 .q .row label.opt:has(input[value=No]:checked),.q .row label.opt:has(input[value="Not compliant"]:checked){border-color:var(--bad);background:#fbe5e4;color:var(--bad)}
 .q .row label.opt:has(input[value=Compliant]:checked){border-color:var(--ok);background:#e3f4e7;color:var(--ok)}
+table.alarmsum{font-size:14px;margin:8px 0}
+table.alarmsum td{white-space:normal}
+@media(max-width:640px){table.alarmsum td:first-child{font-size:16px}}
