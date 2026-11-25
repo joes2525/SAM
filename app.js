@@ -261,14 +261,14 @@ function copyAlarm() {
     <button type="button" class="btn g s" style="margin-top:10px" onclick="this.closest('.box').remove()">Cancel</button></div>`;
 }
 function alarmForm(id, copyFrom) {
-  const a = copyFrom ? {...copyFrom, id: null, location: ''} : window._p.alarms.find(x => x.id === id) || {}, years = []; for (let y = new Date().getFullYear(); y >= 2005; y--) years.push(String(y));
-  $('#aform').innerHTML = `<div class="box">${copyFrom ? `<p class="small muted">Copied from <b>${esc(copyFrom.location)}</b>. Enter where this alarm is and check the details.</p>` : ''}<form id="alf" class="f">
+  const a = copyFrom ? {...copyFrom, id: null, location: '', manufacture_year: null, manufacture_month: null} : window._p.alarms.find(x => x.id === id) || {}, years = []; for (let y = new Date().getFullYear(); y >= 2005; y--) years.push(String(y));
+  $('#aform').innerHTML = `<div class="box">${copyFrom ? `<p class="small muted">Copied from <b>${esc(copyFrom.location)}</b>. Enter where this alarm is and its manufacture date (printed on the alarm), then check the other details.</p>` : ''}<form id="alf" class="f">
     <label>Location<input name="location" required placeholder="e.g. Hallway outside bedroom 1" value="${esc(a.location)}"></label>
     <label>Type<select name="alarm_type"><option></option>${opts(TYPES, a.alarm_type)}</select></label>
     <label>Power source<select name="power_source"><option></option>${opts(POWER, a.power_source)}</select></label>
     <label>Interconnected?<select name="interconnected"><option></option>${opts(YNU, a.interconnected)}</select></label>
     <label>Marked AS 3786-2014?<select name="as3786"><option></option>${opts(YNU, a.as3786)}</select></label>
-    <label>Manufacture year<select name="manufacture_year"><option></option>${opts(years, String(a.manufacture_year ?? ''))}</select></label>
+    <label>Manufacture year${copyFrom ? ' (required)' : ''}<select name="manufacture_year" ${copyFrom ? 'required' : ''}><option></option>${opts(years, String(a.manufacture_year ?? ''))}</select></label>
     <label>Manufacture month (blank if not shown)<select name="manufacture_month"><option></option>${[...Array(12)].map((_, i) => `<option value="${i + 1}" ${a.manufacture_month === i + 1 ? 'selected' : ''}>${new Date(2000, i).toLocaleString('en-AU', {month: 'long'})}</option>`).join('')}</select></label>
     <label>Brand<input name="brand" value="${esc(a.brand)}"></label><label>Model<input name="model" value="${esc(a.model)}"></label>
     <div class="wide row"><button class="btn o">Save alarm</button><button type="button" class="btn g" onclick="this.closest('.box').remove()">Cancel</button>
