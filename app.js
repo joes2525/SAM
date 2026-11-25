@@ -370,7 +370,7 @@ const CHECK_QS = [
   ['q4', 'Is any alarm damaged, painted over, covered or blocked?'],
   ['c1', 'Are smoke alarms installed in all required locations (each storey, each bedroom, hallways connecting bedrooms, or the exit path on storeys without bedrooms)?'],
   ['c5', 'Have all replaceable batteries (including 9V backups in hardwired alarms) more than 6 months old been replaced and dated?'],
-  ['c7', 'When you tested each alarm, did all the other alarms sound at the same time?']];
+  ['c7', 'When you pressed each alarm\'s test button, did it sound and did all the other alarms sound at the same time?']];
 async function check(id) {
   const {data: p, error} = await sb.from('properties').select('*, alarms(*)').eq('id', id).single(); fail(error); window._p = p; window._ctc = new Set();
   const practice = !approved && window._practice; window._practice = false;
