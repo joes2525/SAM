@@ -225,7 +225,7 @@ async function property(id) {
       <div><div class="muted small">Team</div>${esc(p.teams?.name || 'Just me')}</div></div>
       ${p.access_notes ? `<p class="pre small"><b>Access:</b> ${esc(p.access_notes)}</p>` : ''}</div>
 
-    <div class="spread"><h2>Smoke alarms (${p.alarms.length}${est ? ' of about ' + est + ' needed' : ''})</h2><button class="btn s" onclick="alarmForm()">Add alarm</button></div>
+    <div class="spread"><h2>Smoke alarms (${p.alarms.length}${est ? ' of about ' + est + ' needed' : ''})</h2><div class="row"><button class="btn s" onclick="alarmForm()">Add alarm</button>${p.alarms.length ? '<button class="btn s g" onclick="copyAlarm()">Copy alarm</button>' : ''}</div></div>
     ${est && p.alarms.length < est ? `<p class="pill warn">This property may need at least ${est} alarms (bedrooms + storeys + 1). This is an estimate only.</p>` : ''}
     <div id="aform"></div>
     ${p.alarms.length ? `<table><tr><th>Location</th><th>Type / power</th><th>Expires</th><th>Status</th><th></th></tr>${p.alarms.map(a => `<tr>
@@ -251,9 +251,18 @@ async function deleteProperty() {
   if (!confirm('Delete this property, its alarms, tenants and check history? This can\'t be undone.')) return;
   const {error} = await sb.from('properties').delete().eq('id', window._p.id); fail(error); toast('Property deleted.'); location.hash = '#/properties';
 }
-function alarmForm(id) {
-  const a = window._p.alarms.find(x => x.id === id) || {}, years = []; for (let y = new Date().getFullYear(); y >= 2005; y--) years.push(String(y));
-  $('#aform').innerHTML = `<div class="box"><form id="alf" class="f">
+// Copy an existing alarm's details (type, power, brand, dates...) into a new alarm
+function copyAlarm() {
+  const al = window._p.alarms;
+  if (al.length === 1) return alarmForm(null, al[0]);
+  $('#aform').innerHTML = `<div class="box"><label style="max-width:360px">Copy details from which alarm?
+    <select onchange="this.value && alarmForm(null, window._p.alarms.find(a => a.id === this.value))"><option value="">Choose an alarm…</option>
+    ${al.map(a => `<option value="${a.id}">${esc(a.location)}</option>`).join('')}</select></label>
+    <button type="button" class="btn g s" style="margin-top:10px" onclick="this.closest('.box').remove()">Cancel</button></div>`;
+}
+function alarmForm(id, copyFrom) {
+  const a = copyFrom ? {...copyFrom, id: null, location: ''} : window._p.alarms.find(x => x.id === id) || {}, years = []; for (let y = new Date().getFullYear(); y >= 2005; y--) years.push(String(y));
+  $('#aform').innerHTML = `<div class="box">${copyFrom ? `<p class="small muted">Copied from <b>${esc(copyFrom.location)}</b>. Enter where this alarm is and check the details.</p>` : ''}<form id="alf" class="f">
     <label>Location<input name="location" required placeholder="e.g. Hallway outside bedroom 1" value="${esc(a.location)}"></label>
     <label>Type<select name="alarm_type"><option></option>${opts(TYPES, a.alarm_type)}</select></label>
     <label>Power source<select name="power_source"><option></option>${opts(POWER, a.power_source)}</select></label>
