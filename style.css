@@ -189,7 +189,7 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em}
 /* bigger logos */
 .toplogo{height:78px}
 .sidelogo{width:236px}
-.side{width:272px}
+@media(min-width:821px){.side{width:272px}}
 @media(max-width:820px){.sidelogo{width:200px}}
 @media(max-width:640px){.toplogo{height:56px}}
 /* photos + gallery */
