@@ -55,6 +55,7 @@ function alarmIssues(a) {
   if (!a.power_source || a.power_source === 'Unknown') missing.push('power source'); else if (a.power_source === '9V replaceable battery') bad.push('replaceable battery only');
   if (!a.interconnected || a.interconnected === 'Unsure') missing.push('interconnection'); else if (a.interconnected === 'No') bad.push('not interconnected');
   if (!a.as3786 || a.as3786 === 'Unsure') missing.push('AS 3786-2014 marking'); else if (a.as3786 === 'No') bad.push('not marked AS 3786-2014');
+  if (a.distances === 'No') bad.push('too close to walls, lights, vents or fans'); else if (a.distances === 'Unsure') missing.push('distance check');
   if (!a.expiry_date) missing.push('manufacture date');
   else if (a.expiry_date <= today()) bad.push('expired ' + fmt(a.expiry_date));
   const soon = a.expiry_date && a.expiry_date > today() && a.expiry_date <= addMonths(today(), 12);
@@ -320,6 +321,8 @@ function alarmForm(id, copyFrom, opts = {}) {
     <label>Power source<select name="power_source"><option></option>${opts(POWER, a.power_source)}</select></label>
     <label>Interconnected?<select name="interconnected"><option></option>${opts(YNU, a.interconnected)}</select></label>
     <label>Marked AS 3786-2014?<select name="as3786"><option></option>${opts(YNU, a.as3786)}</select></label>
+    <label>Meets distance requirements?<select name="distances"><option></option>${opts(YNU, a.distances)}</select>
+      <span class="small muted" style="font-weight:400">At least 300 mm from walls, corners and lights; 400 mm from air-con vents and fan blades</span></label>
     <label>Manufacture year${copyFrom ? ' (required)' : ''}<select name="manufacture_year" ${copyFrom ? 'required' : ''}><option></option>${opts(years, String(a.manufacture_year ?? ''))}</select></label>
     <label>Manufacture month (blank if not shown)<select name="manufacture_month"><option></option>${[...Array(12)].map((_, i) => `<option value="${i + 1}" ${a.manufacture_month === i + 1 ? 'selected' : ''}>${new Date(2000, i).toLocaleString('en-AU', {month: 'long'})}</option>`).join('')}</select></label>
     <label>Brand<input name="brand" value="${esc(a.brand)}"></label><label>Model<input name="model" value="${esc(a.model)}"></label>
@@ -358,17 +361,15 @@ async function delRow(table, id) { if (!confirm('Delete this?')) return; const {
 
 // ---------- log a check ----------
 const CHECK_QS = [
-  ['q1', 'Have you checked the alarm details above are still correct?'],
   ['q3', "Have you read the manufacturer's recommendations for these smoke alarms?"],
   ['q4', 'Is any alarm damaged, painted over, covered or blocked?'],
   ['c1', 'Are smoke alarms installed in all required locations (each storey, each bedroom, hallways connecting bedrooms, or the exit path on storeys without bedrooms)?'],
   ['c3', 'Is every alarm at the required minimum distance from walls, lights, fans, vents and other fixtures?'],
-  ['c4', 'Were all alarms cleaned?'],
   ['c5', 'Have all replaceable batteries (including 9V backups in hardwired alarms) more than 6 months old been replaced and dated?'],
   ['c6', 'Did each alarm sound when you pressed its test button?'],
   ['c7', 'When you tested each alarm, did all the other alarms sound at the same time?']];
 async function check(id) {
-  const {data: p, error} = await sb.from('properties').select('*, alarms(*)').eq('id', id).single(); fail(error); window._p = p;
+  const {data: p, error} = await sb.from('properties').select('*, alarms(*)').eq('id', id).single(); fail(error); window._p = p; window._ctc = new Set();
   const practice = !approved && window._practice; window._practice = false;
   if (!approved && !practice) {
     $('#main').innerHTML = `<h1>Log a check</h1><div class="box">Before you can log checks you need to pass all 7 SAM Academy modules and the final exam (re-sat every 12 months).
@@ -398,12 +399,14 @@ async function check(id) {
       const override = d.assessment === 'Compliant' && flags.length > 0;
       if (override && !d.notes) return toast('Please explain in the notes why the property is compliant despite the flags.');
       if (!p.alarms.length && !practice) return toast('Add the alarms to the property first.');
+      const notDone = p.alarms.filter(a => !window._ctc.has(a.id));
+      if (notDone.length) { $('#asum').scrollIntoView({behavior: 'smooth'}); return toast('Tick "Checked, tested & cleaned" for: ' + notDone.map(a => a.location).join(', ')); }
       if (practice) return practiceResult(p, d, flags);
       const answers = {}; CHECK_QS.forEach(([k, q]) => answers[k] = {question: q, answer: d[k]});
       const {error} = await sb.from('inspections').insert({
         property_id: p.id, inspection_date: d.inspection_date, assessment: d.assessment, notes: d.notes,
         inspector_override: override, answers, check_type: me.role === 'electrician' ? 'licensed' : 'manager',
-        alarm_snapshot: p.alarms.map(a => ({...a, status: alarmIssues(a)})),
+        alarm_snapshot: p.alarms.map(a => ({...a, status: alarmIssues(a), checked_tested_cleaned: window._ctc.has(a.id)})),
         refresher_question: ref?.id || null, refresher_correct: refResult ?? null});
       fail(error); toast('Check saved.'); location.hash = '#/property/' + p.id;
     };
@@ -425,15 +428,21 @@ async function check(id) {
 function alarmSummary(p) {
   return `<div class="box"><h2 style="margin-top:0">Alarms on record (${p.alarms.length})</h2>
       ${p.alarms.length ? `<p class="small muted">Check each alarm matches what's on the ceiling. If anything is different, click Edit to update it.</p>
-      <table class="alarmsum"><tr><th>Location</th><th>Type</th><th>Power</th><th>Interconnected</th><th>AS 3786-2014</th><th>Made / expires</th><th>Brand / model</th><th>SAM Check*</th></tr>
+      <table class="alarmsum"><tr><th>Location</th><th>Type</th><th>Power</th><th>Interconnected</th><th>AS 3786-2014</th><th>Distances OK</th><th>Made / expires</th><th>Brand / model</th><th>SAM Check*</th><th></th></tr>
       ${[...p.alarms].sort((x, y) => x.location.localeCompare(y.location)).map(a => `<tr>
         <td><b>${esc(a.location)}</b> <button type="button" class="btn s g" onclick="checkEditAlarm('${a.id}')">Edit</button></td><td><span class="ml">Type: </span>${esc(a.alarm_type || '–')}</td><td><span class="ml">Power: </span>${esc(a.power_source || '–')}</td>
-        <td><span class="ml">Interconnected: </span>${esc(a.interconnected || '–')}</td><td><span class="ml">AS 3786-2014: </span>${esc(a.as3786 || '–')}</td>
+        <td><span class="ml">Interconnected: </span>${esc(a.interconnected || '–')}</td><td><span class="ml">AS 3786-2014: </span>${esc(a.as3786 || '–')}</td><td><span class="ml">Distances OK: </span>${esc(a.distances || '–')}</td>
         <td><span class="ml">Made: </span>${a.manufacture_year ? (a.manufacture_month ? String(a.manufacture_month).padStart(2, '0') + '/' : '') + a.manufacture_year : '–'}${a.expiry_date ? `<div class="small muted">Expires ${fmt(a.expiry_date)}</div>` : ''}</td>
-        <td><span class="ml">Brand / model: </span>${esc([a.brand, a.model].filter(Boolean).join(' ') || '–')}</td><td>${alarmPill(a)}</td></tr>`).join('')}</table>${SAM_CHECK_NOTE}`
+        <td><span class="ml">Brand / model: </span>${esc([a.brand, a.model].filter(Boolean).join(' ') || '–')}</td><td>${alarmPill(a)}</td>
+        <td><button type="button" class="btn s ctc ${window._ctc?.has(a.id) ? 'done' : 'g'}" onclick="toggleCTC('${a.id}', this)">${window._ctc?.has(a.id) ? '✓ Checked, tested & cleaned' : 'Checked, tested & cleaned'}</button></td></tr>`).join('')}</table>${SAM_CHECK_NOTE}`
       : '<p class="pill bad">No alarms recorded. Add the alarms on the property page before logging a check.</p>'}
       ${p.bedrooms != null && p.storeys != null && p.alarms.length < +p.bedrooms + +p.storeys + 1 ? `<p class="pill warn">${p.alarms.length} alarm(s) on record. A ${p.bedrooms}-bedroom, ${p.storeys}-storey property usually needs at least ${+p.bedrooms + +p.storeys + 1}.</p>` : ''}
       <p><button type="button" class="btn s g" onclick="alarmForm(null, null, {done: refreshAlarmSummary})">Add an alarm</button></p></div>`;
+}
+function toggleCTC(id, b) {
+  window._ctc.has(id) ? window._ctc.delete(id) : window._ctc.add(id);
+  const on = window._ctc.has(id); b.classList.toggle('done', on); b.classList.toggle('g', !on);
+  b.textContent = (on ? '✓ ' : '') + 'Checked, tested & cleaned';
 }
 function checkEditAlarm(id) { alarmForm(id, null, {done: refreshAlarmSummary}); }
 async function refreshAlarmSummary() {
