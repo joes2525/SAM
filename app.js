@@ -632,7 +632,7 @@ async function tenantHome() {
     const f = $('#join'); if (f) f.onsubmit = async e => { e.preventDefault(); const {error} = await sb.rpc('tenant_join_property', formData(e.target)); fail(error); toast('Your home has been added.'); route(); };
   });
   return `<p class="muted">Test and clean your smoke alarms at least once a year, and log it here. We'll send you reminders.</p>
-    ${cards.map(c => publicCard(c).replace('</h3>', ` <button class="btn s g" style="float:right" onclick="removeHome('${c.id}')">Remove</button></h3>`) + `<div class="box"><h3 style="margin-top:0">Your yearly test & clean</h3>${tenantDue(c.last_tenant_check)}
+    ${cards.map(c => publicCard(c).replace('</h3>', ` <button class="btn s g" style="float:right" onclick="removeHome('${c.id}')">Remove</button></h3>`).replace(/<\/div>$/, '') + `<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><h3 style="margin-top:0">Your yearly test & clean</h3>${tenantDue(c.last_tenant_check)}
       <button class="btn o" onclick="this.style.display='none';this.nextElementSibling.style.display='grid'">Test & clean now</button>
       <form class="grid" style="display:none;margin-top:14px" onsubmit="tenantCheck(event,'${c.id}')">
       <label>Date<input type="date" name="check_date" value="${today()}" max="${today()}" required></label>
