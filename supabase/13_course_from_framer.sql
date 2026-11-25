@@ -75,7 +75,7 @@ On the ceiling, as close to the centre of the room or hallway as practical.
 ![Clearances: keep alarms 300 mm from walls and light fittings, 400 mm from air-conditioning vents and ceiling fan blades. On a sloping ceiling, within 500 mm of the highest point but not within 300 mm of the apex.](img/course/d4XxZOw2ATEsAOmQAEvEOdS9C9E.svg)
 
 ### What counts as a bedroom
-The law says every bedroom needs an alarm, but it doesn’t say what a bedroom is. Across the smoke alarm industry, a room is generally treated as a bedroom if it’s **big enough for a single bed, has a door and has a window**. It doesn’t matter what the plan or listing calls it, and a room someone already sleeps in counts too.
+The law says every bedroom needs an alarm, but it doesn’t say what a bedroom is. Across the smoke alarm industry, a room is generally treated as a bedroom if it’s **big enough for a single bed, has a door and has a window**. It doesn’t matter what the plan or listing calls it.
 Rooms to look out for:
 - **A study or office**, even with no bed in it
 - **A rumpus, media or games room** with a door and window
