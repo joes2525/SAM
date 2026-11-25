@@ -311,7 +311,7 @@ function copyAlarm() {
   const last = [...window._p.alarms].sort((x, y) => (x.created_at || '').localeCompare(y.created_at || '')).pop();
   alarmForm(null, last);
 }
-function alarmForm(id, copyFrom, opts = {}) {
+function alarmForm(id, copyFrom, how = {}) {
   const a = copyFrom ? {...copyFrom, id: null, location: '', manufacture_year: null, manufacture_month: null, photo_path: null} : window._p.alarms.find(x => x.id === id) || {}, years = []; for (let y = new Date().getFullYear(); y >= 2005; y--) years.push(String(y));
   $('#aform').innerHTML = `<div class="box">${copyFrom ? `<p class="small muted">Copied from <b>${esc(copyFrom.location)}</b>. Enter where this alarm is and its manufacture date (printed on the alarm), then check the other details.</p>` : ''}<form id="alf" class="f">
     <label>Location<select name="loc_pick" required onchange="document.getElementById('locother').classList.toggle('hidden', this.value !== 'Other'); document.querySelector('[name=location_other]').required = this.value === 'Other'">
@@ -328,14 +328,14 @@ function alarmForm(id, copyFrom, opts = {}) {
     <label>Brand<input name="brand" value="${esc(a.brand)}"></label><label>Model<input name="model" value="${esc(a.model)}"></label>
     <label>Photo of the alarm${a.id && a.photo_path ? ' (choose a new one to replace it)' : ''}<input type="file" name="photo" accept="image/*"></label>
     <div class="wide row"><button class="btn o">Save alarm</button><button type="button" class="btn g" onclick="this.closest('.box').remove()">Cancel</button>
-    ${a.id && !opts.done ? `<button type="button" class="btn r" onclick="delRow('alarms','${a.id}')">Delete</button>` : ''}</div></form></div>`;
+    ${a.id && !how.done ? `<button type="button" class="btn r" onclick="delRow('alarms','${a.id}')">Delete</button>` : ''}</div></form></div>`;
   $('#alf').onsubmit = async e => {
     e.preventDefault(); const d = formData(e.target); d.property_id = window._p.id;
     d.location = d.loc_pick === 'Other' ? d.location_other : d.loc_pick; delete d.loc_pick; delete d.location_other;
     const file = e.target.photo.files[0]; delete d.photo; if (copyFrom) delete d.photo_path;
     const {data: saved, error} = a.id ? await sb.from('alarms').update(d).eq('id', a.id).select().single() : await sb.from('alarms').insert(d).select().single(); fail(error);
     if (file) { const path = await uploadPhoto(file, `${window._p.id}/alarm-${saved.id}.jpg`); await sb.from('alarms').update({photo_path: path}).eq('id', saved.id); }
-    toast('Alarm saved.'); (opts.done || route)();
+    toast('Alarm saved.'); (how.done || route)();
   };
   $('#aform').scrollIntoView({behavior: 'smooth'});
 }
