@@ -318,12 +318,17 @@ const CHECK_QS = [
   ['c7', 'When you tested each alarm, did all the other alarms sound at the same time?']];
 async function check(id) {
   const {data: p, error} = await sb.from('properties').select('*, alarms(*)').eq('id', id).single(); fail(error);
-  if (!approved) {
-    $('#main').innerHTML = `<h1>Log a check</h1><div class="box">Before you can log checks you need to pass all 7 SAM Academy modules and the final exam (re-sat every 12 months).<p><a class="btn o" href="#/course">Go to SAM Academy</a></p></div>`; return;
+  const practice = !approved && window._practice; window._practice = false;
+  if (!approved && !practice) {
+    $('#main').innerHTML = `<h1>Log a check</h1><div class="box">Before you can log checks you need to pass all 7 SAM Academy modules and the final exam (re-sat every 12 months).
+      <p><a class="btn o" href="#/course">Go to SAM Academy</a></p></div>
+      <div class="box"><b>Practice log</b><p>Try the check form on this property to see how it works. Nothing is saved and it doesn't count as a check.</p>
+      <button class="btn" onclick="window._practice = true; check('${id}')">Start a practice check</button></div>`; return;
   }
   const ref = me.role === 'electrician' ? null : (await sb.rpc('get_refresher')).data?.[0];
   const page = $('#main');
-  page.innerHTML = `<h1>Log a check</h1><p class="muted">${esc(addr(p))}</p><div id="step"></div>`;
+  page.innerHTML = `<h1>${practice ? 'Practice check' : 'Log a check'}</h1><p class="muted">${esc(addr(p))}</p>
+    ${practice ? '<p class="pill warn">Practice only: nothing you enter here is saved.</p>' : ''}<div id="step"></div>`;
   const form = (refResult) => {
     const flags = p.alarms.map(a => ({a, r: alarmIssues(a)})).filter(x => x.r.status !== 'ok');
     $('#step').innerHTML = `<div class="box"><b>Alarms on record (${p.alarms.length})</b>
@@ -342,7 +347,8 @@ async function check(id) {
       e.preventDefault(); const d = formData(e.target);
       const override = d.assessment === 'Compliant' && flags.length > 0;
       if (override && !d.notes) return toast('Please explain in the notes why the property is compliant despite the flags.');
-      if (!p.alarms.length) return toast('Add the alarms to the property first.');
+      if (!p.alarms.length && !practice) return toast('Add the alarms to the property first.');
+      if (practice) return practiceResult(p, d, flags);
       const answers = {}; CHECK_QS.forEach(([k, q]) => answers[k] = {question: q, answer: d[k]});
       const {error} = await sb.from('inspections').insert({
         property_id: p.id, inspection_date: d.inspection_date, assessment: d.assessment, notes: d.notes,
@@ -363,6 +369,27 @@ async function check(id) {
     $('#rres').innerHTML = `<p class="pill ${r.correct ? 'ok' : 'bad'}">${r.correct ? 'Correct' : 'Not quite – the answer is ' + r.right_answer}</p><p>${esc(r.explanation)}</p><button class="btn o" id="go">Continue to the check</button>`;
     $('#go').onclick = () => form(r.correct);
   };
+}
+
+// Practice check: give feedback instead of saving
+function practiceResult(p, d, flags) {
+  const notes = [];
+  const wrongNo = CHECK_QS.filter(([k]) => k.startsWith('c') && d[k] === 'No').map(([, q]) => q);
+  if (d.q4 === 'Yes') notes.push('You said an alarm is damaged, painted over, covered or blocked. That alarm needs fixing or replacing.');
+  wrongNo.forEach(q => notes.push('You answered No to: <i>' + esc(q) + '</i> That needs following up before the property can be called compliant.'));
+  flags.forEach(({a, r}) => notes.push(`SAM flagged <b>${esc(a.location)}</b>: ${esc(r.bad.concat(r.missing.map(m => 'missing ' + m)).join(', '))}.`));
+  if (!p.alarms.length) notes.push('This property has no alarms recorded. In a real check, add every alarm on the property page first.');
+  const problems = notes.length > 0;
+  const verdict = d.assessment === 'Compliant' && problems
+    ? '<p class="pill bad">You chose Compliant, but there are problems listed below. In a real check you would need a good reason in the notes, or choose Not compliant.</p>'
+    : d.assessment === 'Not compliant' && !problems
+      ? '<p class="pill warn">You chose Not compliant, but nothing was flagged. In a real check, explain why in the notes.</p>'
+      : '<p class="pill ok">Your overall assessment matches your answers.</p>';
+  $('#step').innerHTML = `<div class="box"><h2 style="margin-top:0">Practice result</h2>${verdict}
+    ${problems ? `<ul>${notes.map(n => `<li>${n}</li>`).join('')}</ul>` : '<p>No problems found. In a real check you would submit this as Compliant.</p>'}
+    <p class="small muted">Nothing was saved. When you've passed SAM Academy, checks you submit are saved to the property's history.</p>
+    <div class="row"><button class="btn" onclick="window._practice = true; check('${p.id}')">Practise again</button><a class="btn g" href="#/property/${p.id}">Back to the property</a></div></div>`;
+  window.scrollTo(0, 0);
 }
 
 // ---------- SAM Academy ----------
