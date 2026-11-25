@@ -370,13 +370,16 @@ function alarmForm(id, copyFrom, how = {}) {
     <label>Manufacture year${copyFrom ? ' (required)' : ''}<select name="manufacture_year" ${copyFrom ? 'required' : ''}><option></option>${opts(years, String(a.manufacture_year ?? ''))}</select></label>
     <label>Manufacture month (blank if not shown)<select name="manufacture_month"><option></option>${[...Array(12)].map((_, i) => `<option value="${i + 1}" ${a.manufacture_month === i + 1 ? 'selected' : ''}>${new Date(2000, i).toLocaleString('en-AU', {month: 'long'})}</option>`).join('')}</select></label>
     <label>Brand<input name="brand" value="${esc(a.brand)}"></label><label>Model<input name="model" value="${esc(a.model)}"></label>
-    <label>Photo of the alarm${a.id && a.photo_path ? ' (choose a new one to replace it)' : ''}<input type="file" name="photo" accept="image/*"></label>
+    <div><div class="small muted" style="margin-bottom:6px">Photo of the alarm${a.id && a.photo_path ? ' (a new one replaces it)' : ''}</div><div class="row">
+      <label class="btn s" style="margin:0">📷 Take photo<input type="file" name="photo_cam" accept="image/*" capture="environment" hidden onchange="pickedPhoto(this)"></label>
+      <label class="btn s g" style="margin:0">Choose from photos<input type="file" name="photo" accept="image/*" hidden onchange="pickedPhoto(this)"></label>
+      <span class="small muted picked"></span></div></div>
     <div class="wide row"><button class="btn o">Save alarm</button><button type="button" class="btn g" onclick="${how.cancel || "this.closest('.box').remove()"}">Cancel</button>
     ${a.id && !how.done ? `<button type="button" class="btn r" onclick="delRow('alarms','${a.id}')">Delete</button>` : ''}</div></form></div>`;
   $('#alf').onsubmit = async e => {
     e.preventDefault(); const d = formData(e.target); d.property_id = window._p.id;
     d.location = d.loc_pick === 'Other' ? d.location_other : d.loc_pick; delete d.loc_pick; delete d.location_other;
-    const file = e.target.photo.files[0]; delete d.photo; if (copyFrom) delete d.photo_path;
+    const file = e.target.photo_cam.files[0] || e.target.photo.files[0]; delete d.photo; delete d.photo_cam; if (copyFrom) delete d.photo_path;
     const {data: saved, error} = a.id ? await sb.from('alarms').update(d).eq('id', a.id).select().single() : await sb.from('alarms').insert(d).select().single(); fail(error);
     if (file) { const path = await uploadPhoto(file, `${window._p.id}/alarm-${saved.id}.jpg`); await sb.from('alarms').update({photo_path: path}).eq('id', saved.id); }
     toast('Alarm saved.'); (how.done || route)();
@@ -747,4 +750,8 @@ async function uploadLogo(input) {
 async function removeLogo() {
   await sb.storage.from('logos').remove([me.logo_path]);
   const {data, error} = await sb.from('profiles').update({logo_path: null}).eq('id', me.id).select().single(); fail(error); me = data; route();
+}
+function pickedPhoto(input) {
+  const f = input.form, other = input.name === 'photo' ? f.photo_cam : f.photo; if (input.files[0]) other.value = '';
+  input.closest('.row').querySelector('.picked').textContent = input.files[0] ? '✓ Photo added' : '';
 }
