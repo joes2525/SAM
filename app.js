@@ -367,7 +367,6 @@ const CHECK_QS = [
   ['q3', "Have you read the manufacturer's recommendations for these smoke alarms?"],
   ['q4', 'Is any alarm damaged, painted over, covered or blocked?'],
   ['c1', 'Are smoke alarms installed in all required locations (each storey, each bedroom, hallways connecting bedrooms, or the exit path on storeys without bedrooms)?'],
-  ['c3', 'Is every alarm at the required minimum distance from walls, lights, fans, vents and other fixtures?'],
   ['c5', 'Have all replaceable batteries (including 9V backups in hardwired alarms) more than 6 months old been replaced and dated?'],
   ['c6', 'Did each alarm sound when you pressed its test button?'],
   ['c7', 'When you tested each alarm, did all the other alarms sound at the same time?']];
