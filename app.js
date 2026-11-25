@@ -64,23 +64,24 @@ function duePill(d) {
 }
 
 // ---------- sign in / sign up ----------
-function showAuth(mode = 'login') {
-  $('#shell').classList.add('hidden'); $('#auth').classList.remove('hidden');
+function showAuth(mode = 'login', role) {
+  $('#shell').classList.add('hidden'); $('#public').classList.add('hidden'); $('#auth').classList.remove('hidden');
   const signup = mode === 'signup';
   $('#auth').innerHTML = `<div class="box">
     <h1>${signup ? 'Create your SAM account' : mode === 'reset' ? 'Reset your password' : 'Log in to SAM'}</h1>
     <form id="af" class="f" style="grid-template-columns:1fr">
       ${signup ? `<label>Your name<input name="name" required></label>
       <label>I am a<select name="role" onchange="document.getElementById('lic').classList.toggle('hidden',this.value!=='electrician')">
-        ${Object.entries(ROLES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
+        ${Object.entries(ROLES).map(([k, v]) => `<option value="${k}" ${k === role ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
       <label>Company (optional)<input name="company"></label>
-      <label id="lic" class="hidden">Electrical licence number<input name="licence_no"></label>` : ''}
+      <label id="lic" class="${role === 'electrician' ? '' : 'hidden'}">Electrical licence number<input name="licence_no"></label>` : ''}
       <label>Email<input name="email" type="email" required></label>
       ${mode !== 'reset' ? `<label>Password<input name="password" type="password" minlength="8" required></label>` : ''}
       <button class="btn o">${signup ? 'Create account' : mode === 'reset' ? 'Send reset link' : 'Log in'}</button>
     </form>
     <p class="small">${signup ? `Already have an account? <a href="#" data-m="login">Log in</a>`
-      : `New to SAM? <a href="#" data-m="signup">Create an account</a> · <a href="#" data-m="reset">Forgot password?</a>`}</p></div>`;
+      : `New to SAM? <a href="#" data-m="signup">Create an account</a> · <a href="#" data-m="reset">Forgot password?</a>`}</p>
+    <p class="small"><a href="#/">← Back to the website</a></p></div>`;
   $('#auth').querySelectorAll('[data-m]').forEach(a => a.onclick = e => { e.preventDefault(); showAuth(a.dataset.m); });
   $('#af').onsubmit = async e => {
     e.preventDefault(); const d = formData(e.target); const back = location.origin + location.pathname;
@@ -100,18 +101,18 @@ function showAuth(mode = 'login') {
     }
   };
 }
-async function signOut() { await sb.auth.signOut(); me = null; location.hash = ''; showAuth(); }
+async function signOut() { await sb.auth.signOut(); me = null; location.hash = '#/'; showPublic(); }
 
 async function start() {
   const err = new URLSearchParams(location.hash.slice(1)).get('error_description');
   if (err) { history.replaceState(null, '', location.pathname); setTimeout(() => toast(err.replace(/\+/g, ' ') + '. Please request a new link.'), 300); }
   const {data: {session}} = await sb.auth.getSession();
-  if (!session) return showAuth();
+  if (!session) { me = null; return showPublic(); }
   const {data, error} = await sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
   if (!data) { $('#auth').classList.remove('hidden'); $('#shell').classList.add('hidden');
     $('#auth').innerHTML = `<div class="box"><h1>Account not set up</h1><p>We couldn't load your SAM profile${error ? ' (' + esc(error.message) + ')' : ''}. Please contact SAM support.</p><a href="#" onclick="signOut();return false">Sign out</a></div>`; return; }
   me = data; approved = (await sb.rpc('is_approved')).data === true;
-  $('#auth').classList.add('hidden'); $('#shell').classList.remove('hidden');
+  $('#auth').classList.add('hidden'); $('#public').classList.add('hidden'); $('#shell').classList.remove('hidden');
   $('#who').textContent = (me.name || '') + ' · ' + me.email;
   route();
 }
@@ -131,13 +132,13 @@ function navItems() {
   if (me.role !== 'electrician') n.push(['course', 'SAM Academy']);
   return n.concat([['help', 'Help'], ['profile', 'Profile']]);
 }
-window.onhashchange = () => me && route();
+window.onhashchange = () => me ? route() : showPublic();
 async function route() {
   document.body.classList.remove('open');
   const [page, id] = location.hash.replace(/^#\/?/, '').split('/');
   const p = page || 'home';
-  $('#nav').innerHTML = navItems().map(([k, v]) => `<a href="#/${k}" class="${k === p || (p === 'property' && k === 'properties') ? 'on' : ''}">${v}</a>`).join('');
-  const pages = {home, properties, property, check, course, quiz, teams, help, profile};
+  $('#nav').innerHTML = navItems().map(([k, v]) => `<a href="#/${k}" class="${k === p || (p === 'property' && k === 'properties') || ((p === 'lesson' || p === 'quiz') && k === 'course') ? 'on' : ''}">${v}</a>`).join('');
+  const pages = {home, properties, property, check, course, quiz, teams, help, profile, lesson: n => lessonPage(n, '#main')};
   $('#main').innerHTML = '<p class="muted">Loading…</p>';
   try { await (pages[p] || home)(id); } catch (e) { console.error(e); $('#main').innerHTML = `<p>Something went wrong: ${esc(e.message)}</p>`; }
   window.scrollTo(0, 0);
@@ -372,7 +373,7 @@ async function course() {
       return `<tr><td>${r.is_exam ? '🎓' : r.module_id}</td><td><b>${esc(r.title)}</b></td>
       <td><span class="pill ${r.status === 'Passed' ? 'ok' : r.status === 'Attempted' ? 'warn' : ''}">${r.status}</span>${r.passed_at ? `<div class="small muted">${fmt(r.passed_at)}</div>` : ''}</td>
       <td>${r.attempts ? r.best_score + '%' : '–'}</td>
-      <td class="row">${link(r) && !r.is_exam ? `<a class="btn s g" target="_blank" href="${esc(link(r))}">Lesson</a>` : ''}
+      <td class="row">${!r.is_exam ? `<a class="btn s g" href="#/lesson/${r.module_id}">Lesson</a>` : ''}
         ${locked ? '<span class="small muted">Pass all modules first</span>' : `<a class="btn s ${r.status === 'Passed' && !r.is_exam ? 'g' : 'o'}" href="#/quiz/${r.module_id}">${r.is_exam ? 'Sit exam' : r.status === 'Passed' ? 'Retake' : 'Take quiz'}</a>`}</td></tr>`;
     }).join('')}</table>`;
 }
