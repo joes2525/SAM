@@ -31,10 +31,10 @@ async function photoUrls(paths) {
   return Object.fromEntries((data || []).filter(x => x.signedUrl).map(x => [x.path, x.signedUrl]));
 }
 // Shrink to max 1600px JPEG before uploading (phone photos are huge)
-async function shrink(file) {
-  const img = await createImageBitmap(file); const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+async function shrink(file, max = 1600) {
+  const img = await createImageBitmap(file); const k = Math.min(1, max / Math.max(img.width, img.height));
   const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
   return new Promise(r => c.toBlob(r, 'image/jpeg', 0.82));
 }
 async function uploadPhoto(file, path) {
@@ -590,6 +590,8 @@ async function profile() {
   $('#main').innerHTML = `<h1>Profile</h1><div class="box"><form id="prf" class="f">
     <label>Name<input name="name" value="${esc(me.name)}"></label><label>Phone<input name="phone" value="${esc(me.phone)}"></label>
     <label>Company<input name="company" value="${esc(me.company)}"></label>
+    <label class="wide">Public name<input name="public_name" value="${esc(me.public_name)}" placeholder="Shown on property look-ups, e.g. Joe Steenson, Ray White Ashgrove"></label>
+    <div class="wide"><div class="small muted" style="margin-bottom:6px">Company logo (shown on property look-ups)</div><div class="row">${me.logo_path ? `<img src="${logoUrl(me.logo_path)}" class="logoimg">` : ''}<label class="btn s g" style="margin:0">${me.logo_path ? 'Change logo' : 'Upload logo'}<input type="file" accept="image/*" hidden onchange="uploadLogo(this)"></label>${me.logo_path ? '<button type="button" class="btn s g" onclick="removeLogo()">Remove</button>' : ''}</div></div>
     ${me.role === 'electrician' ? `<label>Licence number<input name="licence_no" value="${esc(me.licence_no)}"></label>` : ''}
     <label>Email<input disabled value="${esc(me.email)}"></label><label>Account type<input disabled value="${esc(ROLES[me.role] || me.role)}"></label>
     <div class="wide row"><button class="btn o">Save</button><button type="button" class="btn g" onclick="newPassword()">Change password</button></div></form></div>
@@ -609,7 +611,7 @@ function publicCard(i) {
   const lc = i.last_check, old = d => !d || d < addMonths(today(), -12);
   const res = lc?.result ? `<span class="pill ${lc.result === 'Compliant' ? 'ok' : 'bad'}">${lc.result === 'Compliant' ? 'Passed' : 'Issues found'}</span>` : '';
   return `<div class="box pubcard"><h3 style="margin-top:0">${esc(i.street)}, ${esc(i.suburb || '')} ${esc(i.postcode || '')}</h3>
-    <p><b>Last check:</b> ${lc ? `${fmtD(lc.date)} ${res}${lc.by ? ` by ${esc(lc.by)}` : ''}${lc.type === 'licensed' ? ' (electrician)' : ''}` : 'None recorded'} ${old(lc?.date) ? '<span class="pill bad">Overdue</span>' : '<span class="pill ok">Up to date</span>'}</p>
+    <p><b>Last check:</b> ${lc ? `${fmtD(lc.date)} ${res}${lc.by ? ` by ${lc.logo ? `<img src="${logoUrl(lc.logo)}" class="logoimg sm" alt="">` : ''}${esc(lc.by)}` : ''}${lc.trained ? ' <span class="pill ok">SAM Academy trained</span>' : ''}${lc.type === 'licensed' ? ' (electrician)' : ''}` : 'None recorded'} ${old(lc?.date) ? '<span class="pill bad">Overdue</span>' : '<span class="pill ok">Up to date</span>'}</p>
     <p><b>Last tenant test & clean:</b> ${fmtD(i.last_tenant_check)}</p>
     <p><b>Alarms recorded:</b> ${i.alarms}${i.earliest_expiry ? ` · <b>Earliest alarm expiry:</b> ${fmtD(i.earliest_expiry)}${i.earliest_expiry < today() ? ' <span class="pill bad">Expired</span>' : ''}` : ''}</p>
     ${i.managed ? '' : '<p class="muted">No property manager has added this property to SAM yet.</p>'}</div>`;
@@ -694,4 +696,16 @@ function tenantDue(last) {
   if (due < today()) return `<p class="pill bad" style="white-space:normal">Overdue. Your last test & clean was ${fmtD(last)}, so the next one was due ${fmtD(due)}.</p>`;
   if (due <= soon) return `<p class="pill warn" style="white-space:normal">Coming up. Your next test & clean is due ${fmtD(due)}.</p>`;
   return `<p class="pill ok" style="white-space:normal">All good. Your last test & clean was ${fmtD(last)}. The next one is due ${fmtD(due)}.</p>`;
+}
+const logoUrl = p => sb.storage.from('logos').getPublicUrl(p).data.publicUrl;
+async function uploadLogo(input) {
+  const f = input.files[0]; if (!f) return;
+  const path = `${me.id}/logo-${Date.now()}.jpg`, blob = await shrink(f, 600);
+  const {error} = await sb.storage.from('logos').upload(path, blob, {contentType: 'image/jpeg'}); fail(error);
+  if (me.logo_path) await sb.storage.from('logos').remove([me.logo_path]);
+  const {data, error: e2} = await sb.from('profiles').update({logo_path: path}).eq('id', me.id).select().single(); fail(e2); me = data; toast('Logo saved.'); route();
+}
+async function removeLogo() {
+  await sb.storage.from('logos').remove([me.logo_path]);
+  const {data, error} = await sb.from('profiles').update({logo_path: null}).eq('id', me.id).select().single(); fail(error); me = data; route();
 }
