@@ -276,11 +276,11 @@ async function property(id) {
 
     <div class="spread"><h2>Smoke alarms (${p.alarms.length}${est ? ' of about ' + est + ' needed' : ''})</h2></div>
     ${est && p.alarms.length < est ? `<p class="pill warn">This property may need at least ${est} alarms (bedrooms + storeys + 1). This is an estimate only.</p>` : ''}
-    ${p.alarms.length ? `<table><tr><th>Location</th><th>Type / power</th><th>Expires</th><th>SAM Check*</th><th></th></tr>${p.alarms.map(a => `<tr>
+    ${p.alarms.length ? `<table><tr><th>Location</th><th>Type / power</th><th>Expires</th><th>SAM Check*</th><th></th></tr>${p.alarms.map(a => `<tr data-alarm="${a.id}">
       <td><div class="row" style="flex-wrap:nowrap">${urls[a.photo_path] ? `<a href="${urls[a.photo_path]}" target="_blank"><img class="thumb" src="${urls[a.photo_path]}" alt=""></a>` : ''}<div><b>${esc(a.location)}</b><div class="small muted">${esc([a.brand, a.model].filter(Boolean).join(' '))}</div></div></div></td>
       <td>${esc(a.alarm_type || '?')}<div class="small muted">${esc(a.power_source || '')}</div></td>
       <td>${fmt(a.expiry_date)}</td><td>${alarmPill(a)}</td>
-      <td><button class="btn s g" onclick="alarmForm('${a.id}')">Edit</button></td></tr>`).join('')}</table>${SAM_CHECK_NOTE}` : '<p class="muted">No alarms added yet.</p>'}
+      <td><button class="btn s g" onclick="inlineEdit('${a.id}', stayPut, 'stayPut()')">Edit</button></td></tr>`).join('')}</table>${SAM_CHECK_NOTE}` : '<p class="muted">No alarms added yet.</p>'}
     <div class="row" style="margin-top:12px"><button class="btn s" onclick="alarmForm()">Add alarm</button>${p.alarms.length ? '<button class="btn s g" onclick="copyAlarm()">Copy alarm</button>' : ''}</div>
     <div id="aform" style="margin-top:12px"></div>
 
@@ -302,6 +302,8 @@ async function propertyPhoto(input) {
   const path = await uploadPhoto(f, `${window._p.id}/property.jpg`);
   const {error} = await sb.from('properties').update({photo_path: path}).eq('id', window._p.id); fail(error); toast('Photo saved.'); route();
 }
+// Re-draw the property page without jumping back to the top
+async function stayPut() { const y = window.scrollY; await property(window._p.id); window.scrollTo(0, y); }
 async function deleteProperty() {
   if (!confirm('Delete this property, its alarms, tenants and check history? This can\'t be undone.')) return;
   const {error} = await sb.from('properties').delete().eq('id', window._p.id); fail(error); toast('Property deleted.'); location.hash = '#/properties';
@@ -313,7 +315,8 @@ function copyAlarm() {
 }
 function alarmForm(id, copyFrom, how = {}) {
   const a = copyFrom ? {...copyFrom, id: null, location: '', manufacture_year: null, manufacture_month: null, photo_path: null} : window._p.alarms.find(x => x.id === id) || {}, years = []; for (let y = new Date().getFullYear(); y >= 2005; y--) years.push(String(y));
-  $('#aform').innerHTML = `<div class="box">${copyFrom ? `<p class="small muted">Copied from <b>${esc(copyFrom.location)}</b>. Enter where this alarm is and its manufacture date (printed on the alarm), then check the other details.</p>` : ''}<form id="alf" class="f">
+  const box = how.target ? document.querySelector(how.target) : $('#aform');
+  box.innerHTML = `<div class="box">${copyFrom ? `<p class="small muted">Copied from <b>${esc(copyFrom.location)}</b>. Enter where this alarm is and its manufacture date (printed on the alarm), then check the other details.</p>` : ''}<form id="alf" class="f">
     <label>Location<select name="loc_pick" required onchange="document.getElementById('locother').classList.toggle('hidden', this.value !== 'Other'); document.querySelector('[name=location_other]').required = this.value === 'Other'">
       <option value="">Choose…</option>${opts(LOCATIONS, LOCATIONS.includes(a.location) ? a.location : (a.location ? 'Other' : ''))}<option ${a.location && !LOCATIONS.includes(a.location) ? 'selected' : ''}>Other</option></select></label>
     <label id="locother" class="${a.location && !LOCATIONS.includes(a.location) ? '' : 'hidden'}">Other location<input name="location_other" placeholder="e.g. Granny flat bedroom" value="${esc(LOCATIONS.includes(a.location) ? '' : a.location)}" ${a.location && !LOCATIONS.includes(a.location) ? 'required' : ''}></label>
@@ -327,7 +330,7 @@ function alarmForm(id, copyFrom, how = {}) {
     <label>Manufacture month (blank if not shown)<select name="manufacture_month"><option></option>${[...Array(12)].map((_, i) => `<option value="${i + 1}" ${a.manufacture_month === i + 1 ? 'selected' : ''}>${new Date(2000, i).toLocaleString('en-AU', {month: 'long'})}</option>`).join('')}</select></label>
     <label>Brand<input name="brand" value="${esc(a.brand)}"></label><label>Model<input name="model" value="${esc(a.model)}"></label>
     <label>Photo of the alarm${a.id && a.photo_path ? ' (choose a new one to replace it)' : ''}<input type="file" name="photo" accept="image/*"></label>
-    <div class="wide row"><button class="btn o">Save alarm</button><button type="button" class="btn g" onclick="this.closest('.box').remove()">Cancel</button>
+    <div class="wide row"><button class="btn o">Save alarm</button><button type="button" class="btn g" onclick="${how.cancel || "this.closest('.box').remove()"}">Cancel</button>
     ${a.id && !how.done ? `<button type="button" class="btn r" onclick="delRow('alarms','${a.id}')">Delete</button>` : ''}</div></form></div>`;
   $('#alf').onsubmit = async e => {
     e.preventDefault(); const d = formData(e.target); d.property_id = window._p.id;
@@ -337,7 +340,7 @@ function alarmForm(id, copyFrom, how = {}) {
     if (file) { const path = await uploadPhoto(file, `${window._p.id}/alarm-${saved.id}.jpg`); await sb.from('alarms').update({photo_path: path}).eq('id', saved.id); }
     toast('Alarm saved.'); (how.done || route)();
   };
-  $('#aform').scrollIntoView({behavior: 'smooth'});
+  if (!how.target) $('#aform').scrollIntoView({behavior: 'smooth', block: 'nearest'});
 }
 function tenantForm(id) {
   const t = window._p.tenants.find(x => x.id === id) || {};
@@ -429,7 +432,7 @@ function alarmSummary(p) {
   return `<div class="box"><h2 style="margin-top:0">Alarms on record (${p.alarms.length})</h2>
       ${p.alarms.length ? `<p class="small muted">Check each alarm matches what's on the ceiling. If anything is different, click Edit to update it.</p>
       <table class="alarmsum"><tr><th>Location</th><th>Type</th><th>Power</th><th>Interconnected</th><th>AS 3786-2014</th><th>Distances OK</th><th>Made / expires</th><th>Brand / model</th><th>SAM Check*</th><th></th></tr>
-      ${[...p.alarms].sort((x, y) => x.location.localeCompare(y.location)).map(a => `<tr>
+      ${[...p.alarms].sort((x, y) => x.location.localeCompare(y.location)).map(a => `<tr data-alarm="${a.id}">
         <td><b>${esc(a.location)}</b> <button type="button" class="btn s g" onclick="checkEditAlarm('${a.id}')">Edit</button></td><td><span class="ml">Type: </span>${esc(a.alarm_type || '–')}</td><td><span class="ml">Power: </span>${esc(a.power_source || '–')}</td>
         <td><span class="ml">Interconnected: </span>${esc(a.interconnected || '–')}</td><td><span class="ml">AS 3786-2014: </span>${esc(a.as3786 || '–')}</td><td><span class="ml">Distances OK: </span>${esc(a.distances || '–')}</td>
         <td><span class="ml">Made: </span>${a.manufacture_year ? (a.manufacture_month ? String(a.manufacture_month).padStart(2, '0') + '/' : '') + a.manufacture_year : '–'}${a.expiry_date ? `<div class="small muted">Expires ${fmt(a.expiry_date)}</div>` : ''}</td>
@@ -444,10 +447,18 @@ function toggleCTC(id, b) {
   const on = window._ctc.has(id); b.classList.toggle('done', on); b.classList.toggle('g', !on);
   b.textContent = (on ? '✓ ' : '') + 'Checked, tested & cleaned';
 }
-function checkEditAlarm(id) { alarmForm(id, null, {done: refreshAlarmSummary}); }
+// Edit an alarm right where it is in the list (no jumping around the page)
+function inlineEdit(id, done, cancel) {
+  const row = document.querySelector(`tr[data-alarm="${id}"]`); if (!row) return;
+  const cols = row.parentElement.querySelector('tr')?.children.length || 9;
+  row.innerHTML = `<td colspan="${cols}" class="inlineform"><div id="inl-${id}"></div></td>`;
+  alarmForm(id, null, {done, target: '#inl-' + id, cancel});
+}
+function checkEditAlarm(id) { inlineEdit(id, refreshAlarmSummary, 'redrawAlarmSummary()'); }
+function redrawAlarmSummary() { $('#asum').innerHTML = alarmSummary(window._p); }
 async function refreshAlarmSummary() {
   const {data} = await sb.from('alarms').select('*').eq('property_id', window._p.id); window._p.alarms = data || [];
-  $('#asum').innerHTML = alarmSummary(window._p); $('#aform').innerHTML = ''; $('#asum').scrollIntoView({behavior: 'smooth'});
+  $('#asum').innerHTML = alarmSummary(window._p); $('#aform').innerHTML = '';
 }
 const PRACTICE_BANNER = `<div class="practice-banner"><b>🧪 PRACTICE ONLY</b> This is for practising and testing. Nothing you enter here is saved and it does not count as a smoke alarm check.</div>`;
 // Practice check: give feedback instead of saving
