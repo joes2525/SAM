@@ -452,9 +452,9 @@ async function teams() {
   const invites = inv.filter(i => !ids.includes(i.team_id));
   $('#main').innerHTML = `<h1>Teams</h1><p class="muted">Put properties in a team and everyone in it can see and check them.</p>
     ${invites.map(i => `<div class="box spread"><span>You've been invited to join <b>${esc(i.teams?.name)}</b></span><button class="btn o" onclick="acceptInvite('${i.team_id}')">Join team</button></div>`).join('')}
-    ${mine.map(m => `<div class="box"><div class="spread"><h2 style="margin:0">${esc(m.teams.name)}</h2><button class="btn s g" onclick="leaveTeam('${m.team_id}')">Leave team</button></div>
+    ${mine.map(m => `<div class="box"><div class="spread"><h2 style="margin:0" data-team="${m.team_id}">${esc(m.teams.name)}</h2><button class="btn s g" onclick="leaveTeam('${m.team_id}')">Leave team</button></div>
       <p>${members.filter(x => x.team_id === m.team_id).map(x => `<span class="pill">${esc(x.profiles?.name || x.profiles?.email)}</span>`).join(' ')}</p>
-      ${sent.filter(s => s.team_id === m.team_id).map(s => `<span class="pill warn">Invited: ${esc(s.email)} <a href="#" onclick="cancelInvite('${s.team_id}','${esc(s.email)}');return false">✕</a></span>`).join(' ')}
+      ${sent.filter(s => s.team_id === m.team_id).map(s => `<span class="pill warn">Invited: ${esc(s.email)} <a href="#" title="Email them the invite again" onclick="inviteEmail('${s.team_id}','${esc(s.email)}');return false">✉</a> <a href="#" title="Cancel invite" onclick="cancelInvite('${s.team_id}','${esc(s.email)}');return false">✕</a></span>`).join(' ')}
       <form class="row" style="margin-top:10px" onsubmit="invite(event,'${m.team_id}')"><input type="email" name="email" placeholder="Colleague's email" required style="max-width:280px"><button class="btn s">Invite</button></form></div>`).join('')}
     <div class="box"><form class="row" onsubmit="newTeam(event)"><input name="name" placeholder="New team name, e.g. Smith Realty – Rentals" required style="max-width:320px"><button class="btn o">Create team</button></form></div>`;
 }
@@ -462,7 +462,17 @@ async function newTeam(e) { e.preventDefault(); const {error} = await sb.rpc('cr
 async function invite(e, team) {
   e.preventDefault(); const email = e.target.email.value.trim().toLowerCase();
   const {error} = await sb.from('team_invites').insert({team_id: team, email, invited_by: me.id}); fail(error);
-  toast('Invite added. Ask them to sign up (or log in) with ' + email + ' and open Teams.'); route();
+  await route(); inviteEmail(team, email);
+}
+// Until SAM can send emails itself: open the inviter's own email app with a ready-made invite
+function inviteEmail(team, email) {
+  const name = document.querySelector(`[data-team="${team}"]`)?.textContent || 'our team';
+  const link = location.origin + location.pathname + '#/signup';
+  const subject = `Join ${name} on SAM`;
+  const body = `Hi,\n\nI've invited you to join ${name} on SAM (Smoke Alarm Maintenance), where we keep our smoke alarm records.\n\n` +
+    `1. Create your account here, using this email address (${email}): ${link}\n   Already have an account? Just log in.\n2. Open Teams and click Join team.\n\nThanks,\n${me.name || ''}`;
+  location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  toast('Invite added. Your email app should open with a message ready to send.');
 }
 async function cancelInvite(team, email) { const {error} = await sb.from('team_invites').delete().eq('team_id', team).eq('email', email); fail(error); route(); }
 async function acceptInvite(team) { const {error} = await sb.rpc('accept_invite', {p_team: team}); fail(error); toast('You joined the team.'); route(); }
