@@ -287,14 +287,14 @@ async function property(id) {
       <div><div class="muted small">Team</div>${esc(p.teams?.name || 'Just me')}</div></div>
       ${p.access_notes ? `<p class="pre small"><b>Access:</b> ${esc(p.access_notes)}</p>` : ''}</div>
 
-    <div class="spread"><h2>Smoke alarms (${p.alarms.length}${est ? ' of about ' + estR + ' needed' : ''})</h2></div>
+    <div class="spread"><h2>Smoke alarms (${p.alarms.length})</h2></div>
     ${p.alarms.length ? `<table><tr><th>Location</th><th>Type / power</th><th>Expires</th><th>SAM Check*</th><th></th></tr>${p.alarms.map(a => `<tr data-alarm="${a.id}">
       <td><div class="row" style="flex-wrap:nowrap">${urls[a.photo_path] ? `<a href="${urls[a.photo_path]}" target="_blank"><img class="thumb" src="${urls[a.photo_path]}" alt=""></a>` : ''}<div><b>${esc(a.location)}</b><div class="small muted">${esc([a.brand, a.model].filter(Boolean).join(' '))}</div></div></div></td>
       <td>${esc(a.alarm_type || '?')}<div class="small muted">${esc(a.power_source || '')}</div></td>
       <td>${fmt(a.expiry_date)}</td><td>${alarmPill(a)}</td>
       <td><button class="btn s g" onclick="inlineEdit('${a.id}', stayPut, 'stayPut()')">Edit</button></td></tr>`).join('')}</table>${SAM_CHECK_NOTE}` : '<p class="muted">No alarms added yet.</p>'}
-    ${est ? `<p class="pill ${p.alarms.length < est ? 'bad' : p.alarms.length === est ? 'warn' : 'ok'}" style="white-space:normal">This property may need ${estR} alarms (one in each bedroom, plus one on each storey for the hallway or the way out). ${p.alarms.length} recorded. This is only an estimate based on a typical layout. Some properties need more, for example a study used as a bedroom, or bedrooms off separate hallways.</p>`
-      : `<p class="pill warn" style="white-space:normal">Add the number of bedrooms and storeys (Edit property) to see an estimate of how many alarms this property needs.</p>`}
+    ${est ? `<p class="small estnote ${p.alarms.length < est ? 'bad' : p.alarms.length === est ? 'warn' : 'ok'}">**Alarm estimate: this property may need ${estR} alarms (one in each bedroom, plus one on each storey for the hallway or the way out). ${p.alarms.length} recorded. This is only an estimate based on a typical layout. Some properties need more, for example a study used as a bedroom, or bedrooms off separate hallways.</p>`
+      : `<p class="small estnote warn">**Alarm estimate: add the number of bedrooms and storeys (Edit property) to see an estimate of how many alarms this property needs.</p>`}
     <div class="row" style="margin-top:12px"><button class="btn s" onclick="alarmForm()">Add alarm</button>${p.alarms.length ? '<button class="btn s g" onclick="copyAlarm()">Copy alarm</button>' : ''}</div>
     <div id="aform" style="margin-top:12px"></div>
 
