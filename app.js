@@ -101,7 +101,9 @@ async function start() {
   if (err) { history.replaceState(null, '', location.pathname); setTimeout(() => toast(err.replace(/\+/g, ' ') + '. Please request a new link.'), 300); }
   const {data: {session}} = await sb.auth.getSession();
   if (!session) return showAuth();
-  const {data} = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+  const {data, error} = await sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
+  if (!data) { $('#auth').classList.remove('hidden'); $('#shell').classList.add('hidden');
+    $('#auth').innerHTML = `<div class="box"><h1>Account not set up</h1><p>We couldn't load your SAM profile${error ? ' (' + esc(error.message) + ')' : ''}. Please contact SAM support.</p><a href="#" onclick="signOut();return false">Sign out</a></div>`; return; }
   me = data; approved = (await sb.rpc('is_approved')).data === true;
   $('#auth').classList.add('hidden'); $('#shell').classList.remove('hidden');
   $('#who').textContent = (me.name || '') + ' · ' + me.email;
