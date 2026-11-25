@@ -87,7 +87,7 @@ function showAuth(mode = 'login') {
       $('#auth').innerHTML = `<div class="box"><h1>Check your email</h1><p>We've sent a link to <b>${esc(d.email)}</b>. Click it to confirm your account, then log in.</p>
         <p class="small muted">Can't see it? Check your spam or junk folder.</p><a class="btn o" href="#" onclick="showAuth();return false">Back to log in</a></div>`;
     } else if (mode === 'reset') {
-      const {error} = await sb.auth.resetPasswordForEmail(d.email, {redirectTo: back + '#/profile'});
+      const {error} = await sb.auth.resetPasswordForEmail(d.email, {redirectTo: back});
       fail(error); toast('Reset link sent – check your email.');
     } else {
       const {error} = await sb.auth.signInWithPassword({email: d.email, password: d.password}); fail(error);
