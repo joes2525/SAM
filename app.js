@@ -244,7 +244,7 @@ async function properties() {
 async function propertyForm(p = {}) {
   const teams = await myTeams();
   $('#main').innerHTML = `<h1>${p.id ? 'Edit property' : 'Add property'}</h1><div class="box"><form id="pf" class="f">
-    <label class="wide">Street address (incl. unit number)<input name="street" required value="${esc(p.street)}"></label>
+    <label class="wide">Street address (incl. unit number)<input name="street" required value="${esc(p.street)}" placeholder="Start typing and pick from the list"><input type="hidden" name="address_id" value="${esc(p.address_id || '')}"></label>
     <label>Suburb<input name="suburb" value="${esc(p.suburb)}"></label>
     <label>State<select name="state">${opts(['QLD', 'NSW', 'VIC', 'SA', 'WA', 'TAS', 'NT', 'ACT'], p.state || 'QLD')}</select></label>
     <label>Postcode<input name="postcode" value="${esc(p.postcode)}"></label>
@@ -614,7 +614,7 @@ function publicCard(i) {
     <p><b>Alarms recorded:</b> ${i.alarms}${i.earliest_expiry ? ` · <b>Earliest alarm expiry:</b> ${fmtD(i.earliest_expiry)}${i.earliest_expiry < today() ? ' <span class="pill bad">Expired</span>' : ''}` : ''}</p>
     ${i.managed ? '' : '<p class="muted">No property manager has added this property to SAM yet.</p>'}</div>`;
 }
-const addrFields = () => `<label>Street address<input name="street" required placeholder="e.g. 3/12 Smith Street"></label><label>Suburb<input name="suburb" required></label><label>Postcode<input name="postcode" required inputmode="numeric" maxlength="4"></label>`;
+const addrFields = () => `<label>Street address<input name="street" required placeholder="Start typing, e.g. 3/12 Smith Street"></label><label>Suburb<input name="suburb" required></label><label>Postcode<input name="postcode" required inputmode="numeric" maxlength="4"></label>`;
 async function lookup() {
   $('#main').innerHTML = `<h1>Look up a property</h1><p class="muted">See when a property's smoke alarms were last checked and by whom.</p>
     <div class="box"><form id="lk" class="grid">${addrFields()}<div class="wide"><button class="btn o">Look up</button></div></form></div><div id="lkr"></div>`;
@@ -651,3 +651,38 @@ async function removeHome(pid) {
   if (!confirm('Remove this home from My home? Your past test records stay with the property.')) return;
   const {error} = await sb.from('property_tenant_users').delete().eq('property_id', pid).eq('user_id', me.id); fail(error); toast('Removed.'); route();
 }
+
+// ---------- address suggestions (Google Places) ----------
+const GKEY = window.SAM_CONFIG.googleKey;
+function attachAddress(input) {
+  if (!GKEY || input._addr) return; input._addr = true; input.setAttribute('autocomplete', 'off');
+  const f = input.form, box = document.createElement('div'); box.className = 'addrlist'; input.parentNode.style.position = 'relative'; input.after(box);
+  let token = crypto.randomUUID(), timer;
+  const close = () => { box.innerHTML = ''; box.style.display = 'none'; };
+  input.addEventListener('input', () => {
+    clearTimeout(timer); if (input.value.trim().length < 4) return close();
+    timer = setTimeout(async () => {
+      try {
+        const r = await fetch('https://places.googleapis.com/v1/places:autocomplete', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-Goog-Api-Key': GKEY},
+          body: JSON.stringify({input: input.value, includedRegionCodes: ['au'], includedPrimaryTypes: ['street_address', 'subpremise', 'premise'], sessionToken: token})});
+        const j = await r.json(); const s = (j.suggestions || []).map(x => x.placePrediction).filter(Boolean);
+        if (!s.length) return close();
+        box.innerHTML = s.map(p => `<button type="button" data-id="${esc(p.placeId)}">${esc(p.text.text)}</button>`).join('') + '<small>Powered by Google</small>';
+        box.style.display = 'block';
+      } catch (e) { close(); }
+    }, 250);
+  });
+  box.addEventListener('mousedown', e => e.preventDefault());
+  box.addEventListener('click', async e => {
+    const b = e.target.closest('button'); if (!b) return; close();
+    const r = await fetch(`https://places.googleapis.com/v1/places/${b.dataset.id}?sessionToken=${token}`, {headers: {'X-Goog-Api-Key': GKEY, 'X-Goog-FieldMask': 'id,addressComponents'}});
+    token = crypto.randomUUID(); const p = await r.json(), c = {};
+    (p.addressComponents || []).forEach(x => x.types.forEach(t => c[t] = x));
+    const g = t => c[t]?.longText || '';
+    input.value = (g('subpremise') ? g('subpremise') + '/' : '') + [g('street_number'), g('route')].filter(Boolean).join(' ');
+    const set = (n, v) => { if (f?.elements[n] && v) f.elements[n].value = v; };
+    set('suburb', g('locality') || g('sublocality')); set('postcode', g('postal_code')); set('state', c.administrative_area_level_1?.shortText); set('address_id', p.id);
+  });
+  input.addEventListener('blur', () => setTimeout(close, 150));
+}
+new MutationObserver(() => document.querySelectorAll('input[name="street"]').forEach(attachAddress)).observe(document.body, {childList: true, subtree: true});

@@ -3,5 +3,6 @@
 window.SAM_CONFIG = {
   url: 'https://pkzxddkhtvyoqcxhvtlu.supabase.co',
   key: 'sb_publishable_3UmfEVnkYgaEznK0pWn4Qg_DwR7F3wo',
+  googleKey: 'AIzaSyAe8SmsuQG04ziX5TUrBdgZnMz_0JrdnPo', // Google Places, restricted to the SAM website
   websiteUrl: '' // Framer site, e.g. https://sam.framer.website (used for module lesson links)
 };
