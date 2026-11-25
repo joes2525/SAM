@@ -251,14 +251,10 @@ async function deleteProperty() {
   if (!confirm('Delete this property, its alarms, tenants and check history? This can\'t be undone.')) return;
   const {error} = await sb.from('properties').delete().eq('id', window._p.id); fail(error); toast('Property deleted.'); location.hash = '#/properties';
 }
-// Copy an existing alarm's details (type, power, brand, dates...) into a new alarm
+// Copy the most recently added alarm's details (type, power, brand...) into a new alarm
 function copyAlarm() {
-  const al = window._p.alarms;
-  if (al.length === 1) return alarmForm(null, al[0]);
-  $('#aform').innerHTML = `<div class="box"><label style="max-width:360px">Copy details from which alarm?
-    <select onchange="this.value && alarmForm(null, window._p.alarms.find(a => a.id === this.value))"><option value="">Choose an alarm…</option>
-    ${al.map(a => `<option value="${a.id}">${esc(a.location)}</option>`).join('')}</select></label>
-    <button type="button" class="btn g s" style="margin-top:10px" onclick="this.closest('.box').remove()">Cancel</button></div>`;
+  const last = [...window._p.alarms].sort((x, y) => (x.created_at || '').localeCompare(y.created_at || '')).pop();
+  alarmForm(null, last);
 }
 function alarmForm(id, copyFrom) {
   const a = copyFrom ? {...copyFrom, id: null, location: '', manufacture_year: null, manufacture_month: null} : window._p.alarms.find(x => x.id === id) || {}, years = []; for (let y = new Date().getFullYear(); y >= 2005; y--) years.push(String(y));
