@@ -50,3 +50,13 @@ details summary{cursor:pointer;font-weight:600}
  .side nav,.signout{display:none;width:100%}body.open .side nav,body.open .signout{display:block}
  main{padding:20px 14px}table{font-size:14px}th,td{padding:8px}
 }
+/* tactile buttons */
+.btn{transition:transform .08s ease,box-shadow .15s ease,filter .15s ease;box-shadow:0 2px 0 rgba(0,0,0,.18)}
+.btn:hover{filter:brightness(1.08);box-shadow:0 3px 6px rgba(20,33,61,.18)}
+.btn:active{transform:translateY(2px) scale(.98);box-shadow:none;filter:brightness(.92)}
+.btn:focus-visible{outline:3px solid rgba(47,111,219,.45);outline-offset:2px}
+.btn.busy{pointer-events:none;opacity:.75;position:relative;padding-right:38px}
+.btn.busy::after{content:"";position:absolute;right:12px;top:50%;width:14px;height:14px;margin-top:-7px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.side nav a{transition:background .15s}.side nav a:active{transform:scale(.98)}
+tr.click:active td{background:#eef3fb}

@@ -15,7 +15,13 @@ const addr = p => [p.street, p.suburb, p.state, p.postcode].filter(Boolean).join
 const opts = (list, val) => list.map(o => `<option ${o === val ? 'selected' : ''}>${esc(o)}</option>`).join('');
 const formData = f => Object.fromEntries([...new FormData(f)].map(([k, v]) => [k, v === '' ? null : v]));
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.add('hidden'), 3500); }
-function fail(error) { if (error) { toast(error.message); throw error; } }
+function unbusy() { document.querySelectorAll('.btn.busy').forEach(b => { b.classList.remove('busy'); b.disabled = false; }); }
+function fail(error) { if (error) { unbusy(); toast(error.message); throw error; } }
+// Show a spinner on the button while a form is saving
+document.addEventListener('submit', e => {
+  const b = e.submitter; if (!b || !b.classList.contains('btn')) return;
+  setTimeout(() => { if (!e.defaultPrevented || !b.isConnected) return; b.classList.add('busy'); b.disabled = true; setTimeout(unbusy, 10000); });
+});
 const ROLES = {property_manager:'Property manager', landlord:'Landlord / self-managing owner', electrician:'Electrician', tenant:'Tenant'};
 
 // ---------- alarm rules (Queensland) ----------
