@@ -37,7 +37,7 @@ function showPublic() {
   const p = pages[page] ? page : 'home';
   $('#public').innerHTML = `
     <a class="announce" href="#/signup">SAM Academy is part of SAM. Keep your smoke alarm records and certificates in SAM Register →</a>
-    <header class="pnav"><a class="brand" href="#/"><span class="logo">SAM</span><b>SAM Academy</b></a>
+    <header class="pnav"><a class="brand" href="#/"><img src="img/SAM-Academy-white.svg" alt="SAM Academy – Smoke alarm knowledge hub" class="toplogo"></a>
       <nav>${[['', 'Home'], ['course', 'Course'], ['pricing', 'Pricing'], ['help', 'Help']].map(([k, v]) => `<a href="#/${k}" class="${(p === k || (p === 'home' && !k) || (p === 'lesson' && k === 'course')) ? 'on' : ''}">${v}</a>`).join('')}
       ${me ? '<a class="btn o s" href="#" onclick="openApp();return false">My account</a>' : '<a class="btn o s" href="#/login">Log in / Sign up</a>'}</nav></header>
     <main id="pmain" class="pmain"></main>
@@ -71,11 +71,11 @@ function pubHome() {
     </div>
     <p class="muted">Saves calling someone out for a test button. Book the electrician only when there’s actually a problem.</p>
   </section>
-  <section class="wrap"><h2>Who it’s for</h2>
-    ${AUDIENCES.map(([id, title, intro, points, cta, role]) => `<div class="aud card" id="${id}"><div><h3>${title}</h3><p>${intro}</p>
-      <div class="row"><a class="btn o" href="#/signup/${role}">${cta}</a>${role === 'tenant' || role === 'electrician' ? '' : '<a class="btn g" href="#/course">Have a look at the course</a>'}</div></div>
-      <ul class="ticks">${points.map(x => `<li>${x}</li>`).join('')}</ul></div>`).join('')}
-  </section>`;
+  <section class="navyband"><div class="wrap"><h2>Who it’s for</h2><div class="audgrid">
+    ${AUDIENCES.map(([id, title, intro, points, cta, role]) => `<div class="aud card" id="${id}"><h3>${title}</h3><p class="intro">${intro}</p>
+      <ul class="ticks">${points.map(x => `<li>${x}</li>`).join('')}</ul>
+      <div class="row"><a class="btn o" href="#/signup/${role}">${cta}</a>${role === 'tenant' || role === 'electrician' ? '' : '<a class="btn g" href="#/course">Have a look at the course</a>'}</div></div>`).join('')}
+  </div></div></section>`;
 }
 
 async function pubCourse() {
