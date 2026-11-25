@@ -30,6 +30,22 @@ async function photoUrls(paths) {
   const {data} = await sb.storage.from('photos').createSignedUrls(paths, 3600);
   return Object.fromEntries((data || []).filter(x => x.signedUrl).map(x => [x.path, x.signedUrl]));
 }
+// Small copies for the gallery. Older photos without one get a small copy made the first time they're shown.
+const thumbOf = p => p + '.thumb.jpg';
+async function thumbUrls(paths) {
+  paths = [...new Set(paths.filter(Boolean))]; if (!paths.length) return {};
+  const {data} = await sb.storage.from('photos').createSignedUrls(paths.map(thumbOf), 3600), out = {};
+  (data || []).forEach((x, i) => { if (x.signedUrl && !x.error) out[paths[i]] = x.signedUrl; });
+  const missing = paths.filter(p => !out[p]);
+  if (missing.length) {
+    const full = await photoUrls(missing); Object.assign(out, full);
+    (async () => { for (const p of missing) { try {
+      if (!full[p]) continue; const blob = await (await fetch(full[p])).blob();
+      await sb.storage.from('photos').upload(thumbOf(p), await shrink(blob, 400), {upsert: true, contentType: 'image/jpeg'});
+    } catch (e) {} } })();
+  }
+  return out;
+}
 // Shrink to max 1600px JPEG before uploading (phone photos are huge)
 async function shrink(file, max = 1600) {
   const img = await createImageBitmap(file); const k = Math.min(1, max / Math.max(img.width, img.height));
@@ -38,7 +54,9 @@ async function shrink(file, max = 1600) {
   return new Promise(r => c.toBlob(r, 'image/jpeg', 0.82));
 }
 async function uploadPhoto(file, path) {
-  const {error} = await sb.storage.from('photos').upload(path, await shrink(file), {upsert: true, contentType: 'image/jpeg'}); fail(error); return path;
+  const {error} = await sb.storage.from('photos').upload(path, await shrink(file), {upsert: true, contentType: 'image/jpeg'}); fail(error);
+  sb.storage.from('photos').upload(thumbOf(path), await shrink(file, 400), {upsert: true, contentType: 'image/jpeg'});
+  return path;
 }
 const PHOTO_ICON = '<div class="nophoto">🏠</div>';
 
@@ -230,7 +248,7 @@ function propGallery(rows, urls) {
   }).join('')}</div>`;
 }
 async function properties() {
-  const props = await loadProperties(); const urls = await photoUrls(props.map(p => p.photo_path));
+  const props = await loadProperties(); const urls = await thumbUrls(props.map(p => p.photo_path));
   const draw = () => { const q = ($('#search')?.value || '').toLowerCase(), v = viewPref();
     const mine = scopePref() === 'mine', rows = props.filter(p => (!mine || p.assigned_to === me.id) && addr(p).toLowerCase().includes(q)).map(p => ({p, d: nextDue(p)}));
     $('#plist').innerHTML = !props.length ? '<p class="muted">No properties yet. Add one, or join your team from the Teams page.</p>'
