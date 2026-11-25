@@ -97,6 +97,8 @@ function showAuth(mode = 'login') {
 async function signOut() { await sb.auth.signOut(); me = null; location.hash = ''; showAuth(); }
 
 async function start() {
+  const err = new URLSearchParams(location.hash.slice(1)).get('error_description');
+  if (err) { history.replaceState(null, '', location.pathname); setTimeout(() => toast(err.replace(/\+/g, ' ') + '. Please request a new link.'), 300); }
   const {data: {session}} = await sb.auth.getSession();
   if (!session) return showAuth();
   const {data} = await sb.from('profiles').select('*').eq('id', session.user.id).single();
