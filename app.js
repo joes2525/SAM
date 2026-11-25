@@ -80,9 +80,12 @@ function showAuth(mode = 'login') {
     e.preventDefault(); const d = formData(e.target); const back = location.origin + location.pathname;
     if (signup) {
       if (d.role === 'electrician' && !d.licence_no) return toast('Please enter your electrical licence number.');
-      const {error} = await sb.auth.signUp({email: d.email, password: d.password,
+      const {data, error} = await sb.auth.signUp({email: d.email, password: d.password,
         options: {emailRedirectTo: back, data: {name: d.name, role: d.role, company: d.company, licence_no: d.licence_no}}});
-      fail(error); toast('Check your email to confirm your account.'); showAuth('login');
+      fail(error);
+      if (data.session) return; // email confirmation is switched off: already logged in
+      $('#auth').innerHTML = `<div class="box"><h1>Check your email</h1><p>We've sent a link to <b>${esc(d.email)}</b>. Click it to confirm your account, then log in.</p>
+        <p class="small muted">Can't see it? Check your spam or junk folder.</p><a class="btn o" href="#" onclick="showAuth();return false">Back to log in</a></div>`;
     } else if (mode === 'reset') {
       const {error} = await sb.auth.resetPasswordForEmail(d.email, {redirectTo: back + '#/profile'});
       fail(error); toast('Reset link sent – check your email.');
