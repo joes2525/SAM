@@ -143,3 +143,16 @@ ul.warns li::before{content:"⚡";position:absolute;left:0}
  .mod{flex-wrap:wrap}.mod .btn{width:100%;text-align:center}
  .quizcta .btn{width:100%;text-align:center}
 }
+/* answer buttons instead of bubbles (quizzes, exam, checks) */
+.q label.opt{position:relative;display:flex;align-items:center;gap:10px;border:2px solid var(--line);border-radius:10px;padding:12px 16px;margin:8px 0;background:#fff;cursor:pointer;font-weight:500;transition:border-color .12s,background .12s,transform .08s}
+.q label.opt:hover{border-color:#b8c6de;background:#f8fafd}
+.q label.opt:active{transform:scale(.98)}
+.q label.opt input{position:absolute;opacity:0;width:1px;height:1px;margin:0;transform:none}
+.q label.opt:has(input:checked){border-color:var(--blue);background:#e8f0fd;color:var(--navy);font-weight:700}
+.q label.opt:has(input[type=checkbox])::before{content:"";flex:none;width:20px;height:20px;border:2px solid #b8c6de;border-radius:5px;background:#fff}
+.q label.opt:has(input[type=checkbox]:checked)::before{content:"✓";color:#fff;background:var(--blue);border-color:var(--blue);text-align:center;line-height:18px;font-weight:800}
+.q label.opt:has(input:focus-visible){outline:3px solid rgba(47,111,219,.4);outline-offset:2px}
+.q .row label.opt{flex:1;justify-content:center;min-width:110px;font-weight:700}
+.q .row label.opt:has(input[value=Yes]:checked){border-color:var(--ok);background:#e3f4e7;color:var(--ok)}
+.q .row label.opt:has(input[value=No]:checked),.q .row label.opt:has(input[value="Not compliant"]:checked){border-color:var(--bad);background:#fbe5e4;color:var(--bad)}
+.q .row label.opt:has(input[value=Compliant]:checked){border-color:var(--ok);background:#e3f4e7;color:var(--ok)}

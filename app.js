@@ -28,6 +28,9 @@ const ROLES = {property_manager:'Property manager', landlord:'Landlord / self-ma
 const TYPES = ['Photoelectric', 'Ionisation', 'Heat', 'Unknown'];
 const POWER = ['240V hardwired with battery backup', '240V hardwired', '10-year sealed lithium battery', '9V replaceable battery', 'Unknown'];
 const YNU = ['Yes', 'No', 'Unsure'];
+const LOCATIONS = ['Bedroom 1', 'Bedroom 2', 'Bedroom 3', 'Bedroom 4', 'Bedroom 5', 'Bedroom 6', 'Main bedroom',
+  'Hallway', 'Hallway outside bedrooms', 'Upstairs hallway', 'Downstairs hallway', 'Stairwell', 'Entry',
+  'Living room', 'Family room', 'Dining room', 'Rumpus room', 'Study', 'Kitchen', 'Laundry', 'Garage', 'Granny flat'];
 function alarmIssues(a) {
   const bad = [], missing = [];
   if (!a.alarm_type || a.alarm_type === 'Unknown') missing.push('type'); else if (a.alarm_type !== 'Photoelectric') bad.push('not photoelectric');
@@ -267,7 +270,9 @@ function copyAlarm() {
 function alarmForm(id, copyFrom) {
   const a = copyFrom ? {...copyFrom, id: null, location: '', manufacture_year: null, manufacture_month: null} : window._p.alarms.find(x => x.id === id) || {}, years = []; for (let y = new Date().getFullYear(); y >= 2005; y--) years.push(String(y));
   $('#aform').innerHTML = `<div class="box">${copyFrom ? `<p class="small muted">Copied from <b>${esc(copyFrom.location)}</b>. Enter where this alarm is and its manufacture date (printed on the alarm), then check the other details.</p>` : ''}<form id="alf" class="f">
-    <label>Location<input name="location" required placeholder="e.g. Hallway outside bedroom 1" value="${esc(a.location)}"></label>
+    <label>Location<select name="loc_pick" required onchange="document.getElementById('locother').classList.toggle('hidden', this.value !== 'Other'); document.querySelector('[name=location_other]').required = this.value === 'Other'">
+      <option value="">Choose…</option>${opts(LOCATIONS, LOCATIONS.includes(a.location) ? a.location : (a.location ? 'Other' : ''))}<option ${a.location && !LOCATIONS.includes(a.location) ? 'selected' : ''}>Other</option></select></label>
+    <label id="locother" class="${a.location && !LOCATIONS.includes(a.location) ? '' : 'hidden'}">Other location<input name="location_other" placeholder="e.g. Granny flat bedroom" value="${esc(LOCATIONS.includes(a.location) ? '' : a.location)}" ${a.location && !LOCATIONS.includes(a.location) ? 'required' : ''}></label>
     <label>Type<select name="alarm_type"><option></option>${opts(TYPES, a.alarm_type)}</select></label>
     <label>Power source<select name="power_source"><option></option>${opts(POWER, a.power_source)}</select></label>
     <label>Interconnected?<select name="interconnected"><option></option>${opts(YNU, a.interconnected)}</select></label>
@@ -279,6 +284,7 @@ function alarmForm(id, copyFrom) {
     ${a.id ? `<button type="button" class="btn r" onclick="delRow('alarms','${a.id}')">Delete</button>` : ''}</div></form></div>`;
   $('#alf').onsubmit = async e => {
     e.preventDefault(); const d = formData(e.target); d.property_id = window._p.id;
+    d.location = d.loc_pick === 'Other' ? d.location_other : d.loc_pick; delete d.loc_pick; delete d.location_other;
     const {error} = a.id ? await sb.from('alarms').update(d).eq('id', a.id) : await sb.from('alarms').insert(d); fail(error); toast('Alarm saved.'); route();
   };
   $('#aform').scrollIntoView({behavior: 'smooth'});
