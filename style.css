@@ -210,3 +210,5 @@ h1,h2,h3{font-weight:800;letter-spacing:-.02em}
 @media(max-width:640px){.btn.ctc{width:100%;margin-top:6px;padding:12px}}
 td.inlineform{padding:0!important;background:#f8fafd}
 td.inlineform .box{margin:0;border:2px solid var(--blue);border-radius:12px}
+figure.diagram{margin:22px 0;background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px}
+figure.diagram img{width:100%;height:auto;display:block}

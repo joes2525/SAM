@@ -21,7 +21,8 @@ function md(text) {
   for (const line of (text || '').split('\n')) {
     const t = line.trim(); let m;
     if (!t) { close(); continue; }
-    if ((m = t.match(/^#{2,4}\s+(.*)/))) { close(); out.push(`<h3>${inline(m[1])}</h3>`); }
+    if ((m = t.match(/^!\[(.*?)\]\((https?:\/\/[^)\s]+)\)$/))) { close(); out.push(`<figure class="diagram"><img src="${esc(m[2])}" alt="${esc(m[1])}" loading="lazy"></figure>`); }
+    else if ((m = t.match(/^#{2,4}\s+(.*)/))) { close(); out.push(`<h3>${inline(m[1])}</h3>`); }
     else if ((m = t.match(/^[-•]\s+(.*)/))) { if (list !== 'ul') { close(); out.push('<ul>'); list = 'ul'; } out.push(`<li>${inline(m[1])}</li>`); }
     else if ((m = t.match(/^\d+\.\s+(.*)/))) { if (list !== 'ol') { close(); out.push('<ol>'); list = 'ol'; } out.push(`<li>${inline(m[1])}</li>`); }
     else { close(); out.push(`<p>${inline(t)}</p>`); }
