@@ -150,8 +150,7 @@ async function newPassword() {
 
 // ---------- navigation ----------
 function navItems() {
-  if (me.role === 'tenant') return [['home', 'My home'], ['lookup', 'Look up'], ['help', 'Help'], ['profile', 'Profile']];
-  const n = [['home', 'Home'], ['properties', 'Properties'], ['lookup', 'Look up'], ['teams', 'Teams']];
+  const n = [['home', 'Home'], ['properties', 'Properties'], ['myhome', 'My home'], ['lookup', 'Look up'], ['teams', 'Teams']];
   if (me.role !== 'electrician') n.push(['course', 'SAM Academy']);
   return n.concat([['help', 'Help'], ['profile', 'Profile']]);
 }
@@ -174,7 +173,7 @@ async function routeOnce() {
   const [page, id] = location.hash.replace(/^#\/?/, '').split('/');
   const p = page || 'home';
   $('#nav').innerHTML = navItems().map(([k, v]) => `<a href="#/${k}" class="${k === p || (p === 'property' && k === 'properties') || ((p === 'lesson' || p === 'quiz') && k === 'course') ? 'on' : ''}">${v}</a>`).join('');
-  const pages = {home, properties, property, check, course, quiz, teams, help, profile, lookup, lesson: n => lessonPage(n, '#main')};
+  const pages = {home, properties, property, check, course, quiz, teams, help, profile, lookup, myhome, lesson: n => lessonPage(n, '#main')};
   $('#main').innerHTML = '<p class="muted">Loading…</p>';
   try { await (pages[p] || home)(id); } catch (e) { console.error(e); $('#main').innerHTML = `<p>Something went wrong: ${esc(e.message)}</p>`; }
   window.scrollTo(0, 0);
@@ -183,14 +182,14 @@ async function routeOnce() {
 // ---------- home ----------
 async function loadProperties() {
   const {data, error} = await sb.from('properties')
-    .select('*, alarms(*), tenants(lease_end,vacate_date), inspections(inspection_date), teams(name)').order('street');
+    .select('*, alarms(*), tenants(lease_end,vacate_date), inspections(inspection_date), teams(name)').eq('resident_added', false).order('street');
   fail(error); return data;
 }
 async function home() {
   const hr = new Date().getHours();
   let h = `<h1>Good ${hr < 12 ? 'morning' : hr < 18 ? 'afternoon' : 'evening'}${me.name ? ', ' + esc(me.name.split(' ')[0]) : ''}</h1>`;
   if (me.role === 'tenant') {
-    $('#main').innerHTML = h + await tenantHome(); return;
+    $('#main').innerHTML = h + await tenantHome(); return; // tenants land on their home
   }
   const props = await loadProperties();
   const dues = props.map(p => ({p, d: nextDue(p)}));
@@ -633,17 +632,22 @@ async function tenantHome() {
     const f = $('#join'); if (f) f.onsubmit = async e => { e.preventDefault(); const {error} = await sb.rpc('tenant_join_property', formData(e.target)); fail(error); toast('Your home has been added.'); route(); };
   });
   return `<p class="muted">Test and clean your smoke alarms at least once a year, and log it here. We'll send you reminders.</p>
-    ${cards.map(c => publicCard(c) + `<div class="box"><h3 style="margin-top:0">Log my yearly test & clean</h3><form class="grid" onsubmit="tenantCheck(event,'${c.id}')">
+    ${cards.map(c => publicCard(c).replace('</h3>', ` <button class="btn s g" style="float:right" onclick="removeHome('${c.id}')">Remove</button></h3>`) + `<div class="box"><h3 style="margin-top:0">Log my yearly test & clean</h3><form class="grid" onsubmit="tenantCheck(event,'${c.id}')">
       <label>Date<input type="date" name="check_date" value="${today()}" max="${today()}" required></label>
       <div class="q wide"><p>When you pressed each test button, did every alarm sound?</p>${['Yes', 'No'].map(v => `<label class="opt"><input type="radio" name="all_sounded" value="${v}" required>${v}</label>`).join('')}</div>
       <div class="q wide"><p>Did you clean each alarm (vacuum or soft brush on the vents)?</p>${['Yes', 'No'].map(v => `<label class="opt"><input type="radio" name="cleaned" value="${v}" required>${v}</label>`).join('')}</div>
       <label class="wide">Anything to report? (beeping, damage, an alarm missing)<textarea name="notes"></textarea></label>
       <div class="wide"><button class="btn o">Save</button></div></form></div>`).join('')}
-    <div class="box"><h3 style="margin-top:0">${cards.length ? 'Add another home' : 'Add your home'}</h3><form id="join" class="grid">${addrFields()}<div class="wide"><button class="btn o">Add</button></div></form>
-    <p class="muted">Have a look at <a href="#/help">Help</a> for how to test and clean your alarms.</p></div>`;
+    ${cards.length >= 2 ? '<p class="muted small">You can add up to 2 homes. Remove one to add another.</p>' : `<div class="box"><h3 style="margin-top:0">${cards.length ? 'Add another home' : 'Add the home you live in'}</h3><form id="join" class="grid">${addrFields()}<div class="wide"><button class="btn o">Add</button></div></form></div>`}
+    <p class="muted">Have a look at <a href="#/help">Help</a> for how to test and clean your alarms.</p>`;
 }
 async function tenantCheck(e, pid) {
   e.preventDefault(); const d = formData(e.target);
   const {error} = await sb.from('tenant_checks').insert({property_id: pid, check_date: d.check_date, all_sounded: d.all_sounded === 'Yes', cleaned: d.cleaned === 'Yes', notes: d.notes || null}); fail(error);
   toast(d.all_sounded === 'No' ? 'Saved. As an alarm didn\'t sound, please tell your property manager straight away.' : 'Saved. Thank you!'); route();
+}
+async function myhome() { $('#main').innerHTML = '<h1>My home</h1>' + await tenantHome(); }
+async function removeHome(pid) {
+  if (!confirm('Remove this home from My home? Your past test records stay with the property.')) return;
+  const {error} = await sb.from('property_tenant_users').delete().eq('property_id', pid).eq('user_id', me.id); fail(error); toast('Removed.'); route();
 }
