@@ -124,7 +124,7 @@ Let everyone in the house know before you test. Protect your own hearing: wear e
 - Only licensed electricians touch hardwired alarms
 - Damaged or scorched alarm: don’t touch, escalate$q$, example=$q$In a stairwell the alarm is 4 metres up and your step ladder won't stand safely on the stairs. Don't improvise. Test it with an extendable test pole from the landing, or record that it couldn't be reached and arrange a contractor.$q$, diagram_caption=null where id=4;
 update modules set title=$q$How to test and clean an alarm$q$, summary=$q$A step-by-step routine you can do in a couple of minutes per property.$q$, content=$q$### Before you start
-Tell anyone home, and neighbours in attached units, that you’re about to test the alarms. They’re loud: about 85 decibels. Wear ear plugs or ear muffs while you test.
+Tell anyone home that you’re about to test the alarms. They’re loud: about 85 decibels. Wear ear plugs or ear muffs while you test.
 ### Step by step
 1. **Look.** Check the alarm is there, undamaged, not painted over, not covered and not blocked. Check the indicator light is on or flashing as normal.
 2. **Read the label.** Note the type, standard (AS 3786-2014) and manufacture date.
