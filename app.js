@@ -818,7 +818,9 @@ async function reportPdf(id, open = true, which = 'main') {
       ...al.filter(a => !a.checked_tested_cleaned).map(a => `${a.location}: not marked as checked, tested & cleaned`),
       ...ans.filter(([k, v]) => BAD_ANSWER[k] && v.answer === BAD_ANSWER[k]).map(([k, v]) => `${v.question} ${v.answer}`)];
     const NAVY = [16, 42, 67], ORANGE = [255, 107, 53], GREEN = [29, 120, 70], RED = [190, 40, 40], GREY = [110, 120, 135], W = 210, M = 16;
-    const make = (title, body) => {
+    const NOTES = {1: 'Queensland law: the owner or their agent must test and clean each alarm within 30 days before a tenancy starts or is renewed, and tenants at least once every 12 months, both in line with the manufacturer\'s instructions. A check is due sooner if a lease starts or is renewed first.',
+      2: 'SAM Check: a basic automatic check of the details entered for each alarm (type, power source, interconnection, AS 3786-2014 marking and age) against the Queensland rules. It is only as accurate as the details entered and doesn\'t replace checking the alarm in person.'};
+    const make = (title, body, notes = [1]) => {
       const doc = new JsPDF({unit: 'mm', format: 'a4'}); let y = 18;
       doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(...NAVY); doc.text('SAM', M, y); doc.setTextColor(...ORANGE); doc.text('Register', M + doc.getTextWidth('SAM '), y);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...GREY); doc.text('Smoke alarm records for Queensland properties', M, y + 5);
@@ -827,25 +829,29 @@ async function reportPdf(id, open = true, which = 'main') {
       doc.setDrawColor(...ORANGE); doc.setLineWidth(0.8); doc.line(M, y + 9, W - M, y + 9);
       y += 20; doc.setTextColor(...NAVY); doc.setFontSize(17); doc.text(title, M, y);
       // details box
-      const det = [['RECORD NO.', recNo], ['PROPERTY ADDRESS', addrTxt], ['CHECK DATE', fmtD(x.inspection_date)], ['NEXT CHECK DUE', fmtD(addMonths(x.inspection_date, 12)) + ' (or within 30 days before a new lease)'],
-        ['CHECKED BY', who + (by?.company && by.company !== who ? ', ' + by.company : '')], [licensed ? 'LICENCE NO.' : 'CHECK TYPE', licensed ? (by?.licence_no || '–') : 'Property manager check' + (by?.trained ? ' · SAM Academy trained' : '')],
+      const det = [['RECORD NO.', recNo], ['PROPERTY ADDRESS', addrTxt], ['CHECK DATE', fmtD(x.inspection_date)], ['NEXT CHECK DUE', fmtD(addMonths(x.inspection_date, 12)), '1'],
+        ['CHECKED BY', who + (by?.company && by.company !== who ? ', ' + by.company : '')], ...(licensed ? [['LICENCE NO.', by?.licence_no || '–']] : []),
         ...(pr.owner_name ? [['OWNER', pr.owner_name]] : [])];
       y += 6; const top = y; let yy = y + 7; doc.setLineWidth(0.2); doc.setDrawColor(220);
-      det.forEach(([k, v], n) => { const col = n % 2, x0 = M + 5 + col * 89; if (col === 0 && n) yy += 11;
+      det.forEach(([k, v, fn], n) => { const col = n % 2, x0 = M + 5 + col * 89; if (col === 0 && n) yy += 11;
         doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...GREY); doc.text(k, x0, yy);
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(30); doc.text(doc.splitTextToSize(String(v), 82)[0], x0, yy + 4.5); });
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(30); const t = doc.splitTextToSize(String(v), 82)[0]; doc.text(t, x0, yy + 4.5);
+        if (fn) { const tw = doc.getTextWidth(t); doc.setFontSize(6); doc.text(fn, x0 + tw + 0.6, yy + 3); } });
       yy += 8; doc.roundedRect(M, top, W - M * 2, yy - top, 2, 2); y = yy + 8;
-      const h2 = t => { y += 3; if (y > 262) { doc.addPage(); y = 20; } doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.setTextColor(...NAVY); doc.text(t, M, y); doc.setDrawColor(220); doc.line(M, y + 2, W - M, y + 2); y += 8; };
+      const h2 = t => { y += 1.5; if (y > 262) { doc.addPage(); y = 20; } doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...NAVY); doc.text(t, M, y); doc.setDrawColor(220); doc.line(M, y + 2, W - M, y + 2); y += 7; };
       const para = (t, size = 9.5) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(size); doc.setTextColor(30); doc.splitTextToSize(t, W - M * 2).forEach(l => { if (y > 280) { doc.addPage(); y = 20; } doc.text(l, M, y); y += size * 0.45; }); y += 3; };
       const tick = (t, ok = true) => { doc.setFillColor(...(ok ? GREEN : RED)); doc.circle(M + 1.8, y - 1.2, 1.8, 'F'); doc.setDrawColor(255); doc.setLineWidth(0.45); if (ok) { doc.line(M + 0.9, y - 1.2, M + 1.6, y - 0.4); doc.line(M + 1.6, y - 0.4, M + 2.8, y - 2.1); } else { doc.line(M + 1.8, y - 2.4, M + 1.8, y - 1); doc.line(M + 1.8, y - 0.4, M + 1.8, y - 0.2); } doc.setLineWidth(0.2);
         doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(30); const ls = doc.splitTextToSize(t, W - M * 2 - 7); ls.forEach((l, n) => { if (y > 280) { doc.addPage(); y = 20; } doc.text(l, M + 6, y); y += 4.3; }); y += 1.5; };
       const pill = (t, ok) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); const w = doc.getTextWidth(t) + 8; doc.setFillColor(...(ok ? GREEN : RED)); doc.roundedRect(M, y - 5, w, 7.5, 3.7, 3.7, 'F'); doc.setTextColor(255); doc.text(t, M + 4, y); y += 8; };
       body({doc, h2, para, tick, pill, get y() { return y; }, set y(v) { y = v; }});
+      const fnLines = notes.map(k => doc.setFontSize(7).splitTextToSize(`${k}  ${NOTES[k]}`, W - M * 2)), fnH = fnLines.reduce((s, l) => s + l.length * 3 + 1, 0);
+      if (y > 277 - fnH) { doc.addPage(); }
+      doc.setPage(doc.getNumberOfPages()); let fy = 279 - fnH; doc.setDrawColor(220); doc.line(M, fy - 3, M + 50, fy - 3); doc.setTextColor(90); doc.setFont('helvetica', 'normal');
+      fnLines.forEach(l => { doc.text(l, M, fy); fy += l.length * 3 + 1; });
       const n = doc.getNumberOfPages();
       for (let p = 1; p <= n; p++) { doc.setPage(p); doc.setFontSize(7.5); doc.setTextColor(140); doc.setFont('helvetica', 'normal');
-        const foot = (licensed ? '' : 'SAM Register records the results provided by the person who carried out the check: a visual check and test of the smoke alarms. It is not an electrical inspection. Only a licensed electrician can install, remove or replace hardwired smoke alarms. ')
-          + 'Smoke alarm checks are due every 12 months and within 30 days before a new lease starts.';
-        doc.text(doc.splitTextToSize(foot, W - M * 2), M, 282); doc.text(`${recNo} · Page ${p} of ${n}`, W - M, 292, {align: 'right'}); }
+        const foot = licensed ? '' : 'SAM Register records the results provided by the person who carried out the check: a visual check and test of the smoke alarms. It is not an electrical inspection. Only a licensed electrician can install, remove or replace hardwired smoke alarms.';
+        doc.setFontSize(7); doc.text(doc.splitTextToSize(foot, W - M * 2), M, 285); doc.text(`${recNo} · Page ${p} of ${n}`, W - M, 292, {align: 'right'}); }
       return doc.output('blob');
     };
     const main = make(passed ? 'Compliance Certificate' : 'Non-Compliance Report', d => {
@@ -855,17 +861,17 @@ async function reportPdf(id, open = true, which = 'main') {
         body: al.map(a => [a.location, a.alarm_type || '–', a.power_source || '–', a.expiry_date ? new Date(a.expiry_date + 'T00:00').toLocaleDateString('en-AU', {month: 'short', year: 'numeric'}) : '–',
           a.status?.status === 'bad' ? 'Problem' : a.status?.status === 'warn' ? 'Details missing' : 'OK', a.checked_tested_cleaned ? 'Yes' : 'No']),
         didParseCell: c => { if (c.section === 'body' && c.column.index === 4) c.cell.styles.textColor = c.cell.raw === 'OK' ? GREEN : RED; },
-        didDrawCell: c => { if (c.section === 'body' && c.column.index === 0) { d.doc.setDrawColor(235); d.doc.line(M, c.cell.y + c.cell.height, W - M, c.cell.y + c.cell.height); } }});
+        didDrawCell: c => { if (c.section === 'head' && c.column.index === 4) { const dd = d.doc; dd.setFontSize(5.5); dd.setFont('helvetica', 'bold'); dd.setTextColor(...GREY); dd.text('2', c.cell.x + c.cell.padding('left') + dd.setFontSize(7.5).getTextWidth('SAM CHECK') + 0.5, c.cell.y + 2.6); }
+          if (c.section === 'body' && c.column.index === 0) { d.doc.setDrawColor(235); d.doc.line(M, c.cell.y + c.cell.height, W - M, c.cell.y + c.cell.height); } }});
       d.y = d.doc.lastAutoTable.finalY + 9;
       d.h2(licensed ? "Electrician's assessment" : "Checker's assessment"); d.pill(passed ? 'Compliant' : 'Not compliant', passed);
       if (!passed && flags.length) { d.h2('Issues to fix'); flags.forEach(f => d.tick(f, false)); }
       if (x.notes) { d.h2('Notes'); d.para(x.notes); }
-      const ok = ans.filter(([k, v]) => BAD_ANSWER[k] && v.answer !== BAD_ANSWER[k] && CONFIRM[k]).map(([k]) => CONFIRM[k]);
-      if (al.length && al.every(a => a.checked_tested_cleaned)) ok.push('Every alarm was checked, tested and cleaned');
+      const ok = ans.filter(([k, v]) => k !== 'q3' && BAD_ANSWER[k] && v.answer !== BAD_ANSWER[k] && CONFIRM[k]).map(([k]) => CONFIRM[k]);
       if (ok.length) { d.h2('The checker confirms the following'); ok.forEach(t => d.tick(t)); }
       d.h2('Declaration');
       d.para(`I confirm that I carried out this check in person on the date above and that the information provided is accurate to the best of my knowledge. I acknowledge that this record will form part of the property's maintenance history and may be shared with and relied on by the property owner, agent or insurer. Signed electronically by ${who} on ${fmtD(x.inspection_date)}.`);
-    });
+    }, [1, 2]);
     const answersDoc = make('Inspection Answers', d => {
       if (flags.length) { d.h2(x.inspector_override ? 'Automatic checks flagged the following – checker confirmed compliance' : 'Automatic checks flagged the following'); flags.forEach(f => d.tick(f, false));
         if (x.inspector_override && x.notes) { d.doc.setFont('helvetica', 'bold'); d.doc.setFontSize(9.5); d.doc.text("Checker's explanation:", M, d.y); d.y += 5; d.para(x.notes); } }
