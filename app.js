@@ -438,7 +438,7 @@ const CHECK_QS = [
   ['c5', 'Have all replaceable batteries (including 9V backups in hardwired alarms) more than 6 months old been replaced and dated?'],
   ['c7', 'When you pressed each alarm\'s test button, did it sound and did all the other alarms sound at the same time?']];
 async function check(id) {
-  const {data: p, error} = await sb.from('properties').select('*, alarms(*)').eq('id', id).single(); fail(error); window._p = p; window._ctc = new Set(); window._issue = {};
+  const {data: p, error} = await sb.from('properties').select('*, alarms(*)').eq('id', id).single(); fail(error); window._p = p; window._ctc = new Set(); window._issue = {}; window._photoed = new Set();
   const practice = !approved && window._practice; window._practice = false;
   if (!approved && !practice) {
     $('#main').innerHTML = `<h1>Log a check</h1><div class="box">Before you can log checks you need to pass all 7 SAM Academy modules and the final exam (re-sat every 12 months).
@@ -508,7 +508,7 @@ function alarmSummary(p) {
         <td><span class="ml">Brand / model: </span>${esc([a.brand, a.model].filter(Boolean).join(' ') || '–')}</td><td>${alarmPill(a)}</td>
         <td><div class="ctcbtns"><button type="button" class="btn s ctc ${window._ctc?.has(a.id) ? 'done' : 'g'}" onclick="toggleCTC('${a.id}', this)">${window._ctc?.has(a.id) ? '✓ Checked, tested & cleaned' : 'Checked, tested & cleaned'}</button>
           <button type="button" class="btn s iss ${window._issue?.[a.id] != null ? 'on' : 'g'}" onclick="toggleIssue('${a.id}')">${window._issue?.[a.id] != null ? '✗ Issue found' : 'Issue found'}</button>
-          <label class="btn s photo">${a.photo_path ? '📷 New photo' : '📷 Add photo'}<input type="file" accept="image/*" capture="environment" hidden onchange="checkAlarmPhoto('${a.id}', this)"></label></div></td></tr>
+          <label class="btn s photo ${window._photoed?.has(a.id) ? 'done' : ''}">${window._photoed?.has(a.id) ? '✓ Photo added' : a.photo_path ? '📷 New photo' : '📷 Add photo'}<input type="file" accept="image/*" capture="environment" hidden onchange="checkAlarmPhoto('${a.id}', this)"></label></div></td></tr>
         ${window._issue?.[a.id] != null ? `<tr class="issrow"><td colspan="10"><label>What's wrong with the ${esc(a.location)} alarm? (shown on the report)<textarea oninput="window._issue['${a.id}']=this.value" placeholder="e.g. Didn't sound when tested, cover cracked, painted over">${esc(window._issue[a.id])}</textarea></label></td></tr>` : ''}`).join('')}</table>${SAM_CHECK_NOTE}`
       : '<p class="pill bad">No alarms recorded. Add the alarms on the property page before logging a check.</p>'}
       ${p.bedrooms != null && p.storeys != null && p.alarms.length < Math.max(1, +p.bedrooms + +p.storeys) ? `<p class="pill warn">${p.alarms.length} alarm(s) on record. A ${p.bedrooms}-bedroom, ${p.storeys}-storey property usually needs at least ${Math.max(1, +p.bedrooms + +p.storeys)}.</p>` : ''}
@@ -519,10 +519,10 @@ function toggleIssue(id) {
   redrawAlarmSummary(); setTimeout(() => document.querySelector(`tr[data-alarm="${id}"] + tr.issrow textarea`)?.focus(), 50);
 }
 async function checkAlarmPhoto(id, input) {
-  const f = input.files[0]; if (!f) return; toast('Uploading photo…');
+  const f = input.files[0]; if (!f) return; toast('Uploading photo…'); input.parentElement.firstChild.textContent = 'Uploading…';
   const path = await uploadPhoto(f, `${window._p.id}/alarm-${id}-${Date.now()}.jpg`);
   const {error} = await sb.from('alarms').update({photo_path: path}).eq('id', id); fail(error);
-  const al = window._p.alarms.find(a => a.id === id); if (al) al.photo_path = path; toast('Photo saved.'); redrawAlarmSummary();
+  const al = window._p.alarms.find(a => a.id === id); if (al) al.photo_path = path; window._photoed.add(id); toast('Photo saved.'); redrawAlarmSummary();
 }
 function toggleCTC(id, b) {
   window._ctc.has(id) ? window._ctc.delete(id) : window._ctc.add(id);
