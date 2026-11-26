@@ -250,7 +250,15 @@ function propTable(rows) {
 async function myTeams() { const {data} = await sb.from('team_members').select('role, teams(id,name,personal)').eq('user_id', me.id); return (data || []).filter(r => r.teams).map(r => ({...r.teams, role: r.role})); }
 async function teamPeople(ids) { if (!ids.length) return []; const {data} = await sb.from('team_members').select('team_id, user_id, role, profiles(name,email)').in('team_id', ids); return data || []; }
 const personName = x => x?.profiles?.name || x?.profiles?.email || '';
-function scopePref(v) { try { if (v) localStorage.setItem('samScope', v); return localStorage.getItem('samScope') || 'mine'; } catch (e) { return v || 'mine'; } }
+let page = 1;
+const pageOf = (rows, n) => rows.slice((page - 1) * n, page * n);
+function pager(total, n) {
+  const pages = Math.ceil(total / n); if (pages <= 1) return ''; page = Math.min(page, pages);
+  return `<div class="row" style="justify-content:center;margin:18px 0;gap:10px"><button class="btn s g" ${page === 1 ? 'disabled' : ''} onclick="goPage(${page - 1})">‹ Previous</button>
+    <span class="muted">Page ${page} of ${pages} · ${total} properties</span><button class="btn s g" ${page === pages ? 'disabled' : ''} onclick="goPage(${page + 1})">Next ›</button></div>`;
+}
+function goPage(n) { page = n; window._redraw?.(); window.scrollTo(0, 0); }
+function scopePref(v) { try { if (v) localStorage.setItem('samScope2', v); return localStorage.getItem('samScope2') || 'team'; } catch (e) { return v || 'team'; } }
 function viewPref(v) { try { if (v) localStorage.setItem('samView', v); return localStorage.getItem('samView') || 'gallery'; } catch (e) { return v || 'gallery'; } }
 function propGallery(rows, urls) {
   return `<div class="gallery">${rows.map(({p, d}) => {
@@ -266,16 +274,17 @@ async function properties() {
     const mine = scopePref() === 'mine', rows = props.filter(p => (!mine || p.assigned_to === me.id) && addr(p).toLowerCase().includes(q)).map(p => ({p, d: nextDue(p)}));
     $('#plist').innerHTML = !props.length ? '<p class="muted">No properties yet. Add one, or join your team from the Teams page.</p>'
       : !rows.length ? `<p class="muted">${mine && !q ? 'No properties are assigned to you. Click Whole team to see the rest of your team\'s properties.' : 'No properties match.'}</p>`
-      : v === 'gallery' ? propGallery(rows, urls) : propTable(rows);
+      : (v === 'gallery' ? propGallery(pageOf(rows, 16), urls) : propTable(pageOf(rows, 50))) + pager(rows.length, v === 'gallery' ? 16 : 50);
     document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('g', b.dataset.view !== v));
     document.querySelectorAll('[data-scope]').forEach(b => b.classList.toggle('g', b.dataset.scope !== scopePref())); };
   $('#main').innerHTML = `<div class="spread"><h1>Properties</h1><button class="btn o" onclick="propertyForm()">Add property</button></div>
     <div class="spread" style="margin-bottom:12px"><input id="search" placeholder="Search by address…" style="max-width:360px">
     <div class="row"><button class="btn s" data-scope="mine">Mine</button><button class="btn s" data-scope="team">Whole team</button><span style="width:10px"></span><button class="btn s" data-view="gallery">▦ Gallery</button><button class="btn s" data-view="list">☰ List</button></div></div>
     <div id="plist"></div>`;
-  $('#search').oninput = draw;
-  document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { viewPref(b.dataset.view); draw(); });
-  document.querySelectorAll('[data-scope]').forEach(b => b.onclick = () => { scopePref(b.dataset.scope); draw(); });
+  $('#search').oninput = () => { page = 1; draw(); };
+  window._redraw = draw;
+  document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { viewPref(b.dataset.view); page = 1; draw(); });
+  document.querySelectorAll('[data-scope]').forEach(b => b.onclick = () => { scopePref(b.dataset.scope); page = 1; draw(); });
   draw(); urls = await thumbUrls(props.map(p => p.photo_path)); if ($('#plist')) draw();
 }
 async function propertyForm(p = {}) {
