@@ -183,7 +183,7 @@ async function newPassword() {
 function navItems() {
   const n = [['home', 'Home'], ['properties', 'Properties'], ['myhome', 'My home'], ['lookup', 'Look up']];
   if (me.role !== 'electrician') n.push(['course', 'SAM Academy']);
-  return n.concat([['help', 'Help'], ['profile', 'Profile & teams']]);
+  return n.concat([['help', 'Help'], ['profile', 'Profile']]);
 }
 let viewingSite = false; // logged-in user looking at the public website
 window.onhashchange = () => (me && !viewingSite) ? route() : showPublic();
@@ -641,7 +641,7 @@ function inviteEmail(team, email) {
   const link = location.origin + location.pathname + '#/signup';
   const subject = `Join ${name} on SAM`;
   const body = `Hi,\n\nI've invited you to join ${name} on SAM (Smoke Alarm Maintenance), where we keep our smoke alarm records.\n\n` +
-    `1. Create your account here, using this email address (${email}): ${link}\n   Already have an account? Just log in.\n2. Open Profile & teams and click Join team.\n\nThanks,\n${me.name || ''}`;
+    `1. Create your account here, using this email address (${email}): ${link}\n   Already have an account? Just log in.\n2. Open Profile and click Join team.\n\nThanks,\n${me.name || ''}`;
   location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   toast('Invite added. Your email app should open with a message ready to send.');
 }
