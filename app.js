@@ -298,16 +298,15 @@ async function propertyForm(p = {}) {
     <label>Bedrooms<input name="bedrooms" type="number" min="0" value="${esc(p.bedrooms)}"></label>
     <label>Storeys<input name="storeys" type="number" min="1" value="${esc(p.storeys)}"></label>
     <label>Owner name (for certificates)<input name="owner_name" value="${esc(p.owner_name)}"></label>
-    <label>Team<select name="team_id" onchange="fillAssign(this.value)">${teams.length ? '' : '<option value="">My properties</option>'}${teams.map(t => `<option value="${t.id}" ${t.id === p.team_id || (!p.team_id && t.personal) ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
     <label>Assigned to<select name="assigned_to" id="assign"></select></label>
     <label class="wide">Access notes<textarea name="access_notes">${esc(p.access_notes)}</textarea></label>
     <div class="wide row"><button class="btn o">Save</button><a class="btn g" href="#/${p.id ? 'property/' + p.id : 'properties'}">Cancel</a></div></form></div>`;
-  window._teams = teams; window._people = await teamPeople(teams.map(t => t.id)); window._assigned = p.assigned_to || me.id;
-  fillAssign($('#pf').team_id.value);
+  window._people = await teamPeople(teams.filter(t => !t.personal).map(t => t.id)); window._assigned = p.assigned_to || me.id;
+  fillAssign(!p.id || p.user_id === me.id || teams.some(t => !t.personal && t.role === 'leader'));
   $('#pf').onsubmit = async e => {
     e.preventDefault(); const d = formData(e.target);
     if (!p.id) {
-      const {data: c, error: ce} = await sb.rpc('claim_property', {street: d.street, suburb: d.suburb || '', postcode: d.postcode || '', team: d.team_id || null}); fail(ce);
+      const {data: c, error: ce} = await sb.rpc('claim_property', {street: d.street, suburb: d.suburb || '', postcode: d.postcode || '', team: null}); fail(ce);
       if (c?.status === 'yours') { toast('That address is already in your properties.'); location.hash = '#/property/' + c.id; return; }
       if (c?.status === 'claimed') { toast('A tenant had already added this address. It is now in your properties.'); location.hash = '#/property/' + c.id; return; }
       if (c?.status === 'taken') { unbusy(); $('#pf').insertAdjacentHTML('afterbegin', `<div class="wide box" style="border-color:#f5a35b"><b>This address is already in SAM</b>, managed by someone else. Ask them to add you to their team, or contact us through Help.${publicCard(c.info)}</div>`); window.scrollTo(0, 0); return; }
@@ -332,7 +331,6 @@ async function property(id) {
       <div><div class="muted small">Last check</div>${d.last ? fmt(d.last) : '–'}</div>
       <div><div class="muted small">Details</div>${esc([p.property_type, p.bedrooms != null && p.bedrooms + ' bed', p.storeys && p.storeys + ' storey'].filter(Boolean).join(' · ') || '–')}</div>
       <div><div class="muted small">Owner</div>${esc(p.owner_name || '–')}</div>
-      <div><div class="muted small">Team</div>${esc(p.teams?.name || 'My properties')}</div>
       <div><div class="muted small">Assigned to</div>${esc(p.assignee?.name || p.assignee?.email || 'Nobody')}</div></div>
       ${p.access_notes ? `<p class="pre small"><b>Access:</b> ${esc(p.access_notes)}</p>` : ''}</div>
 
@@ -358,7 +356,7 @@ async function property(id) {
     ${p.inspections.length ? `<table><tr><th>Date</th><th>Result</th><th>By</th><th>Notes</th><th>PDFs</th></tr>${p.inspections.map(i => `<tr>
       <td>${fmt(i.inspection_date)}</td><td><span class="pill ${i.assessment === 'Compliant' ? 'ok' : 'bad'}">${esc(i.assessment)}</span>${i.inspector_override ? ' <span class="small muted">(override)</span>' : ''}</td>
       <td>${esc(i.profiles?.name || '')}<div class="small muted">${i.check_type === 'licensed' ? 'Electrician' : 'Manager check'}</div></td><td class="small pre">${esc(i.notes || '')}</td><td><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn s g" onclick="reportPdf('${i.id}')">${i.assessment === 'Compliant' ? 'Certificate' : 'Report'}</button><button class="btn s g" onclick="reportPdf('${i.id}', true, 'answers')">Answers</button></div></td></tr>`).join('')}</table>` : '<p class="muted">No checks recorded yet.</p>'}
-    ${(await myTeams()).some(t => t.id === p.team_id && t.role === 'leader') || (!p.team_id && p.user_id === me.id) ? '<p style="margin-top:30px"><button class="btn s r" onclick="deleteProperty()">Delete property</button></p>' : ''}`;
+    ${p.user_id === me.id || (await myTeams()).some(t => !t.personal && t.role === 'leader') ? '<p style="margin-top:30px"><button class="btn s r" onclick="deleteProperty()">Delete property</button></p>' : ''}`;
 }
 async function propertyPhoto(input) {
   const f = input.files[0]; if (!f) return; toast('Uploading photo…');
@@ -603,19 +601,19 @@ async function quiz(mid) {
 // ---------- teams ----------
 async function teams() {
   const {data: mine} = await sb.from('team_members').select('team_id, role, share_properties, teams(id,name,public_name,personal)').eq('user_id', me.id);
-  const ids = mine.map(m => m.team_id);
+  mine.splice(0, mine.length, ...mine.filter(m => !m.teams?.personal)); const ids = mine.map(m => m.team_id);
   const members = await teamPeople(ids);
   const {data: sent} = ids.length ? await sb.from('team_invites').select('*').in('team_id', ids) : {data: []};
   const {data: inv} = await sb.from('team_invites').select('team_id, teams(name)').ilike('email', me.email);
   const invites = inv.filter(i => !ids.includes(i.team_id));
-  $('#main').innerHTML = `<h1 style="margin-top:36px">Teams</h1><p class="muted">Everyone in a team can see and check its properties and invite people. Team leaders can also remove people, change roles, reassign and delete properties, and edit the team's public name.</p>
+  $('#main').innerHTML = `<h1 style="margin-top:36px">Teams</h1><p class="muted">Everyone in a team can see and check the properties of members who share with it, and can invite people. Team leaders can also remove people, change roles, reassign and delete properties, and edit the team's public name.</p>
     ${invites.map(i => `<div class="box spread"><span>You've been invited to join <b>${esc(i.teams?.name)}</b></span><button class="btn o" onclick="acceptInvite('${i.team_id}')">Join team</button></div>`).join('')}
     ${mine.map(m => `<div class="box"><div class="spread"><h2 style="margin:0" data-team="${m.team_id}">${esc(m.teams.name)}</h2><button class="btn s g" onclick="leaveTeam('${m.team_id}')">Leave team</button></div>
       <table style="margin-top:10px">${members.filter(x => x.team_id === m.team_id).map(x => `<tr><td><b>${esc(personName(x))}</b>${x.user_id === me.id ? ' <span class="small muted">(you)</span>' : ''}</td>
         <td><span class="pill ${x.role === 'leader' ? 'ok' : ''}">${x.role === 'leader' ? 'Team leader' : 'Property manager'}</span></td>
         <td style="text-align:right">${m.role === 'leader' ? `<button class="btn s g" onclick="setRole('${m.team_id}','${x.user_id}','${x.role === 'leader' ? 'manager' : 'leader'}')">${x.role === 'leader' ? 'Make property manager' : 'Make team leader'}</button>${x.user_id !== me.id ? ` <button class="btn s g" onclick="removeMember('${m.team_id}','${x.user_id}')">Remove</button>` : ''}` : ''}</td></tr>`).join('')}</table>
       ${sent.filter(s => s.team_id === m.team_id).map(s => `<span class="pill warn">Invited: ${esc(s.email)} <a href="#" title="Email them the invite again" onclick="sendInvite('${s.team_id}','${esc(s.email)}');return false">✉</a> <a href="#" title="Cancel invite" onclick="cancelInvite('${s.team_id}','${esc(s.email)}');return false">✕</a></span>`).join(' ')}
-      ${m.teams.personal ? '' : `<label class="opt" style="margin-top:10px"><input type="checkbox" ${m.share_properties !== false ? 'checked' : ''} onchange="setShare('${m.team_id}', this.checked)"> Share my properties with this team (everyone in the team can see and check them)</label>`}
+      <label class="opt" style="margin-top:10px"><input type="checkbox" ${m.share_properties !== false ? 'checked' : ''} onchange="setShare('${m.team_id}', this.checked)"> Share all my properties with this team</label>
       ${m.role !== 'leader' ? '' : `<form class="row" style="margin-top:10px" onsubmit="savePublicName(event,'${m.team_id}')"><input name="pname" value="${esc(m.teams.public_name || '')}" placeholder="Public name shown on checks, e.g. Ray White Ashgrove" style="max-width:320px"><button class="btn s g">Save public name</button></form>`}
       <form class="row" style="margin-top:10px" onsubmit="invite(event,'${m.team_id}')"><input type="email" name="email" placeholder="Colleague's email" required style="max-width:280px"><button class="btn s">Invite</button></form></div>`).join('')}
     <div class="box"><form class="row" onsubmit="newTeam(event)"><input name="name" placeholder="New team name, e.g. Smith Realty – Rentals" required style="max-width:320px"><button class="btn o">Create team</button></form></div>`;
@@ -651,12 +649,12 @@ async function acceptInvite(team) { const {error} = await sb.rpc('accept_invite'
 async function leaveTeam(team) { if (!confirm('Leave this team? You will no longer see its properties.')) return; const {error} = await sb.rpc('remove_member', {team, member: me.id}); fail(error); toast('You have left the team.'); route(); }
 async function removeMember(team, member) { if (!confirm('Remove this person from the team? Properties assigned to them will become unassigned.')) return; const {error} = await sb.rpc('remove_member', {team, member}); fail(error); toast('Removed.'); route(); }
 async function setRole(team, member, new_role) { const {error} = await sb.rpc('set_member_role', {team, member, new_role}); fail(error); toast('Role changed.'); route(); }
-function fillAssign(team) {
-  const s = $('#assign'); if (!s) return;
-  const t = (window._teams || []).find(x => x.id === team), people = (window._people || []).filter(x => x.team_id === team);
-  s.innerHTML = people.map(x => `<option value="${x.user_id}" ${x.user_id === window._assigned ? 'selected' : ''}>${esc(personName(x))}</option>`).join('') || `<option value="${me.id}">${esc(me.name || me.email)}</option>`;
-  if (!people.some(x => x.user_id === window._assigned)) s.value = me.id;
-  s.disabled = !(t?.role === 'leader'); s.title = s.disabled ? 'Only a team leader can assign properties to someone else' : '';
+function fillAssign(canChange) {
+  const s = $('#assign'); if (!s) return; const seen = new Set([me.id]);
+  const people = [{user_id: me.id, profiles: {name: me.name, email: me.email}}, ...(window._people || []).filter(x => !seen.has(x.user_id) && seen.add(x.user_id))];
+  s.innerHTML = people.map(x => `<option value="${x.user_id}" ${x.user_id === window._assigned ? 'selected' : ''}>${esc(personName(x))}</option>`).join('');
+  if (!people.some(x => x.user_id === window._assigned)) s.insertAdjacentHTML('beforeend', `<option value="${window._assigned}" selected>Current person</option>`);
+  s.disabled = !canChange; s.title = s.disabled ? 'Only the owner or a team leader can change this' : '';
 }
 
 // ---------- help ----------
@@ -918,4 +916,4 @@ async function account() {
   await profile(); $('#main').insertAdjacentHTML('beforeend', t);
   if (location.hash.startsWith('#/teams')) $('#main h1:nth-of-type(2)')?.scrollIntoView();
 }
-async function setShare(team, share) { const {error} = await sb.rpc('set_share_properties', {team, share}); fail(error); toast(share ? 'Your properties are shared with this team.' : 'Your properties are no longer shared with this team (except any added to the team itself).'); }
+async function setShare(team, share) { const {error} = await sb.rpc('set_share_properties', {team, share}); fail(error); toast(share ? 'All your properties are shared with this team.' : 'Your properties are no longer shared with this team.'); }
