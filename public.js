@@ -58,8 +58,8 @@ function pubHome() {
     <div class="chips">${AUDIENCES.map(a => `<a href="#" onclick="document.getElementById('${a[0]}').scrollIntoView({behavior:'smooth'});return false">${a[1]}</a>`).join('')}</div>
   </div></section>
   <section class="wrap duo">
-    <div class="card"><b>SAM Register</b><p>Smoke alarm maintenance and compliance records</p></div>
-    <div class="card"><b>SAM Academy</b><p>Courses and tools to help you check smoke alarms</p></div>
+    <div class="card brandcard reg"><img src="img/SAM-Register.svg" alt="SAM Register"><p>Smoke alarm maintenance and compliance records</p><a class="btn s" href="#/signup">Start your register →</a></div>
+    <div class="card brandcard acad"><img src="img/SAM-Academy.svg" alt="SAM Academy"><p>Courses and tools to help you check smoke alarms</p><a class="btn s" href="#/course">Have a look at the course →</a></div>
   </section>
   <section class="wrap steps">${[['Study', '7 modules, 1-2 hours'], ['Online Exam', 'Test your knowledge'], ['Practice', 'Do your first check'], ['Check', 'Check, test, service'], ['Log', 'Photos, dates and notes']]
     .map(([t, s], i) => `<div class="step"><span>${i + 1}</span><b>${t}</b><small>${s}</small></div>`).join('')}</section>
