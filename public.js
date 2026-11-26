@@ -70,7 +70,6 @@ function pubHome() {
       <div class="card"><h3>Anyone can</h3><ul class="ticks">${['Press the test button on every alarm', 'Check they all go off together', 'Clean them with a vacuum or soft brush', 'Check the date and the label', 'Spot anything missing, damaged or covered'].map(x => `<li>${x}</li>`).join('')}</ul></div>
       <div class="card"><h3>Call a licensed electrician when</h3><ul class="warns">${['A hardwired alarm needs replacing', 'An alarm doesn’t sound or won’t stop', 'Alarms aren’t going off together', 'An alarm is missing or out of date', 'Anything involving wiring'].map(x => `<li>${x}</li>`).join('')}</ul></div>
     </div>
-    <p class="muted">Saves calling someone out for a test button. Book the electrician only when there’s actually a problem.</p>
   </section>
   <section class="navyband"><div class="wrap"><h2>Who it’s for</h2><div class="audgrid">
     ${AUDIENCES.map(([id, title, intro, points, cta, role]) => `<div class="aud card" id="${id}"><h3>${title}</h3><p class="intro">${intro}</p>
