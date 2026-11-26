@@ -602,7 +602,7 @@ async function quiz(mid) {
 
 // ---------- teams ----------
 async function teams() {
-  const {data: mine} = await sb.from('team_members').select('team_id, role, teams(id,name,public_name,personal)').eq('user_id', me.id);
+  const {data: mine} = await sb.from('team_members').select('team_id, role, share_properties, teams(id,name,public_name,personal)').eq('user_id', me.id);
   const ids = mine.map(m => m.team_id);
   const members = await teamPeople(ids);
   const {data: sent} = ids.length ? await sb.from('team_invites').select('*').in('team_id', ids) : {data: []};
@@ -615,6 +615,7 @@ async function teams() {
         <td><span class="pill ${x.role === 'leader' ? 'ok' : ''}">${x.role === 'leader' ? 'Team leader' : 'Property manager'}</span></td>
         <td style="text-align:right">${m.role === 'leader' ? `<button class="btn s g" onclick="setRole('${m.team_id}','${x.user_id}','${x.role === 'leader' ? 'manager' : 'leader'}')">${x.role === 'leader' ? 'Make property manager' : 'Make team leader'}</button>${x.user_id !== me.id ? ` <button class="btn s g" onclick="removeMember('${m.team_id}','${x.user_id}')">Remove</button>` : ''}` : ''}</td></tr>`).join('')}</table>
       ${sent.filter(s => s.team_id === m.team_id).map(s => `<span class="pill warn">Invited: ${esc(s.email)} <a href="#" title="Email them the invite again" onclick="sendInvite('${s.team_id}','${esc(s.email)}');return false">✉</a> <a href="#" title="Cancel invite" onclick="cancelInvite('${s.team_id}','${esc(s.email)}');return false">✕</a></span>`).join(' ')}
+      ${m.teams.personal ? '' : `<label class="opt" style="margin-top:10px"><input type="checkbox" ${m.share_properties !== false ? 'checked' : ''} onchange="setShare('${m.team_id}', this.checked)"> Share my properties with this team (everyone in the team can see and check them)</label>`}
       ${m.role !== 'leader' ? '' : `<form class="row" style="margin-top:10px" onsubmit="savePublicName(event,'${m.team_id}')"><input name="pname" value="${esc(m.teams.public_name || '')}" placeholder="Public name shown on checks, e.g. Ray White Ashgrove" style="max-width:320px"><button class="btn s g">Save public name</button></form>`}
       <form class="row" style="margin-top:10px" onsubmit="invite(event,'${m.team_id}')"><input type="email" name="email" placeholder="Colleague's email" required style="max-width:280px"><button class="btn s">Invite</button></form></div>`).join('')}
     <div class="box"><form class="row" onsubmit="newTeam(event)"><input name="name" placeholder="New team name, e.g. Smith Realty – Rentals" required style="max-width:320px"><button class="btn o">Create team</button></form></div>`;
@@ -917,3 +918,4 @@ async function account() {
   await profile(); $('#main').insertAdjacentHTML('beforeend', t);
   if (location.hash.startsWith('#/teams')) $('#main h1:nth-of-type(2)')?.scrollIntoView();
 }
+async function setShare(team, share) { const {error} = await sb.rpc('set_share_properties', {team, share}); fail(error); toast(share ? 'Your properties are shared with this team.' : 'Your properties are no longer shared with this team (except any added to the team itself).'); }
