@@ -181,9 +181,9 @@ async function newPassword() {
 
 // ---------- navigation ----------
 function navItems() {
-  const n = [['home', 'Home'], ['properties', 'Properties'], ['myhome', 'My home'], ['lookup', 'Look up'], ['teams', 'Teams']];
+  const n = [['home', 'Home'], ['properties', 'Properties'], ['myhome', 'My home'], ['lookup', 'Look up']];
   if (me.role !== 'electrician') n.push(['course', 'SAM Academy']);
-  return n.concat([['help', 'Help'], ['profile', 'Profile']]);
+  return n.concat([['help', 'Help'], ['profile', 'Profile & teams']]);
 }
 let viewingSite = false; // logged-in user looking at the public website
 window.onhashchange = () => (me && !viewingSite) ? route() : showPublic();
@@ -203,8 +203,8 @@ async function routeOnce() {
   document.body.classList.remove('open');
   const [page, id] = location.hash.replace(/^#\/?/, '').split('/');
   const p = page || 'home';
-  $('#nav').innerHTML = navItems().map(([k, v]) => `<a href="#/${k}" class="${k === p || (p === 'property' && k === 'properties') || ((p === 'lesson' || p === 'quiz') && k === 'course') ? 'on' : ''}">${v}</a>`).join('');
-  const pages = {home, properties, property, check, course, quiz, teams, help, profile, lookup, myhome, lesson: n => lessonPage(n, '#main')};
+  $('#nav').innerHTML = navItems().map(([k, v]) => `<a href="#/${k}" class="${k === p || (p === 'property' && k === 'properties') || (p === 'teams' && k === 'profile') || ((p === 'lesson' || p === 'quiz') && k === 'course') ? 'on' : ''}">${v}</a>`).join('');
+  const pages = {home, properties, property, check, course, quiz, help, profile: account, teams: account, lookup, myhome, lesson: n => lessonPage(n, '#main')};
   $('#main').innerHTML = '<p class="muted">Loading…</p>';
   try { await (pages[p] || home)(id); } catch (e) { console.error(e); $('#main').innerHTML = `<p>Something went wrong: ${esc(e.message)}</p>`; }
   window.scrollTo(0, 0);
@@ -608,7 +608,7 @@ async function teams() {
   const {data: sent} = ids.length ? await sb.from('team_invites').select('*').in('team_id', ids) : {data: []};
   const {data: inv} = await sb.from('team_invites').select('team_id, teams(name)').ilike('email', me.email);
   const invites = inv.filter(i => !ids.includes(i.team_id));
-  $('#main').innerHTML = `<h1>Teams</h1><p class="muted">Everyone in a team can see and check its properties and invite people. Team leaders can also remove people, change roles, reassign and delete properties, and edit the team's public name.</p>
+  $('#main').innerHTML = `<h1 style="margin-top:36px">Teams</h1><p class="muted">Everyone in a team can see and check its properties and invite people. Team leaders can also remove people, change roles, reassign and delete properties, and edit the team's public name.</p>
     ${invites.map(i => `<div class="box spread"><span>You've been invited to join <b>${esc(i.teams?.name)}</b></span><button class="btn o" onclick="acceptInvite('${i.team_id}')">Join team</button></div>`).join('')}
     ${mine.map(m => `<div class="box"><div class="spread"><h2 style="margin:0" data-team="${m.team_id}">${esc(m.teams.name)}</h2><button class="btn s g" onclick="leaveTeam('${m.team_id}')">Leave team</button></div>
       <table style="margin-top:10px">${members.filter(x => x.team_id === m.team_id).map(x => `<tr><td><b>${esc(personName(x))}</b>${x.user_id === me.id ? ' <span class="small muted">(you)</span>' : ''}</td>
@@ -641,7 +641,7 @@ function inviteEmail(team, email) {
   const link = location.origin + location.pathname + '#/signup';
   const subject = `Join ${name} on SAM`;
   const body = `Hi,\n\nI've invited you to join ${name} on SAM (Smoke Alarm Maintenance), where we keep our smoke alarm records.\n\n` +
-    `1. Create your account here, using this email address (${email}): ${link}\n   Already have an account? Just log in.\n2. Open Teams and click Join team.\n\nThanks,\n${me.name || ''}`;
+    `1. Create your account here, using this email address (${email}): ${link}\n   Already have an account? Just log in.\n2. Open Profile & teams and click Join team.\n\nThanks,\n${me.name || ''}`;
   location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   toast('Invite added. Your email app should open with a message ready to send.');
 }
@@ -911,4 +911,9 @@ async function reportPdf(id, open = true, which = 'main') {
     const {error: se} = await sb.rpc('set_report_pdf', {i: id, path}); fail(se);
     if (win) { const {data: u} = await sb.storage.from('documents').createSignedUrl(which === 'answers' ? answersPath(path) : path, 600); win.location = u.signedUrl; route(); }
   } catch (e) { if (win) win.close(); throw e; }
+}
+async function account() {
+  await teams(); const t = $('#main').innerHTML;
+  await profile(); $('#main').insertAdjacentHTML('beforeend', t);
+  if (location.hash.startsWith('#/teams')) $('#main h1:nth-of-type(2)')?.scrollIntoView();
 }
