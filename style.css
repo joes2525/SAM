@@ -224,3 +224,9 @@ figure.diagram img{width:100%;height:auto;display:block}
 .brandcard img{height:58px;width:auto;margin-bottom:6px}
 .brandcard p{font-size:17px;margin:4px 0 14px;color:#334e68}
 .brandcard .btn{margin-top:auto}
+/* audience cards: title, intro, ticks and buttons line up across cards in the same row */
+@supports (grid-template-rows: subgrid){
+  .audgrid .aud{display:grid;grid-row:span 4;grid-template-rows:subgrid;row-gap:0;align-content:start}
+  .audgrid .aud .intro{margin-bottom:18px}
+  .audgrid .aud .row{align-self:end}
+}
