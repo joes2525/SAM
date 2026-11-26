@@ -438,7 +438,7 @@ const CHECK_QS = [
   ['c5', 'Have all replaceable batteries (including 9V backups in hardwired alarms) more than 6 months old been replaced and dated?'],
   ['c7', 'When you pressed each alarm\'s test button, did it sound and did all the other alarms sound at the same time?']];
 async function check(id) {
-  const {data: p, error} = await sb.from('properties').select('*, alarms(*)').eq('id', id).single(); fail(error); window._p = p; window._ctc = new Set();
+  const {data: p, error} = await sb.from('properties').select('*, alarms(*)').eq('id', id).single(); fail(error); window._p = p; window._ctc = new Set(); window._issue = {};
   const practice = !approved && window._practice; window._practice = false;
   if (!approved && !practice) {
     $('#main').innerHTML = `<h1>Log a check</h1><div class="box">Before you can log checks you need to pass all 7 SAM Academy modules and the final exam (re-sat every 12 months).
@@ -464,18 +464,20 @@ async function check(id) {
       ${practice ? PRACTICE_BANNER : ''}<button class="btn o">${practice ? 'Finish practice check' : 'Submit check'}</button></form>`;
     $('#cf').onsubmit = async e => {
       e.preventDefault(); const d = formData(e.target);
-      const flags = p.alarms.map(a => ({a, r: alarmIssues(a)})).filter(x => x.r.status !== 'ok');
+      const flags = p.alarms.map(a => ({a, r: alarmIssues(a)})).filter(x => x.r.status !== 'ok' || window._issue[x.a.id] != null);
       const override = d.assessment === 'Compliant' && flags.length > 0;
       if (override && !d.notes) return toast('Please explain in the notes why the property is compliant despite the flags.');
       if (!p.alarms.length && !practice) return toast('Add the alarms to the property first.');
-      const notDone = p.alarms.filter(a => !window._ctc.has(a.id));
-      if (notDone.length) { $('#asum').scrollIntoView({behavior: 'smooth'}); return toast('Tick "Checked, tested & cleaned" for: ' + notDone.map(a => a.location).join(', ')); }
+      const notDone = p.alarms.filter(a => !window._ctc.has(a.id) && window._issue[a.id] == null);
+      if (notDone.length) { $('#asum').scrollIntoView({behavior: 'smooth'}); return toast('Mark "Checked, tested & cleaned" or "Issue found" for: ' + notDone.map(a => a.location).join(', ')); }
+      const noNote = p.alarms.filter(a => window._issue[a.id] != null && !window._issue[a.id].trim());
+      if (noNote.length) { $('#asum').scrollIntoView({behavior: 'smooth'}); return toast('Describe the issue for: ' + noNote.map(a => a.location).join(', ')); }
       if (practice) return practiceResult(p, d, flags);
       const answers = {}; CHECK_QS.forEach(([k, q]) => answers[k] = {question: q, answer: d[k]});
       const {data: saved, error} = await sb.from('inspections').insert({
         property_id: p.id, inspection_date: d.inspection_date, assessment: d.assessment, notes: d.notes,
         inspector_override: override, answers, check_type: me.role === 'electrician' ? 'licensed' : 'manager',
-        alarm_snapshot: p.alarms.map(a => ({...a, status: alarmIssues(a), checked_tested_cleaned: window._ctc.has(a.id)})),
+        alarm_snapshot: p.alarms.map(a => ({...a, status: alarmIssues(a), checked_tested_cleaned: window._ctc.has(a.id), issue: window._issue[a.id] ?? null})),
         refresher_question: ref?.id || null, refresher_correct: refResult ?? null}).select('id').single();
       fail(error); toast('Check saved. Making the report…'); location.hash = '#/property/' + p.id;
       reportPdf(saved.id, false).then(() => { toast('Report saved.'); if (location.hash === '#/property/' + p.id) route(); }).catch(e => console.warn('Report not made:', e));
@@ -504,10 +506,23 @@ function alarmSummary(p) {
         <td><span class="ml">Interconnected: </span>${esc(a.interconnected || '–')}</td><td><span class="ml">AS 3786-2014: </span>${esc(a.as3786 || '–')}</td><td><span class="ml">Distances OK: </span>${esc(a.distances || '–')}</td>
         <td><span class="ml">Made: </span>${a.manufacture_year ? (a.manufacture_month ? String(a.manufacture_month).padStart(2, '0') + '/' : '') + a.manufacture_year : '–'}${a.expiry_date ? `<div class="small muted">Expires ${fmt(a.expiry_date)}</div>` : ''}</td>
         <td><span class="ml">Brand / model: </span>${esc([a.brand, a.model].filter(Boolean).join(' ') || '–')}</td><td>${alarmPill(a)}</td>
-        <td><button type="button" class="btn s ctc ${window._ctc?.has(a.id) ? 'done' : 'g'}" onclick="toggleCTC('${a.id}', this)">${window._ctc?.has(a.id) ? '✓ Checked, tested & cleaned' : 'Checked, tested & cleaned'}</button></td></tr>`).join('')}</table>${SAM_CHECK_NOTE}`
+        <td><div class="ctcbtns"><button type="button" class="btn s ctc ${window._ctc?.has(a.id) ? 'done' : 'g'}" onclick="toggleCTC('${a.id}', this)">${window._ctc?.has(a.id) ? '✓ Checked, tested & cleaned' : 'Checked, tested & cleaned'}</button>
+          <button type="button" class="btn s iss ${window._issue?.[a.id] != null ? 'on' : 'g'}" onclick="toggleIssue('${a.id}')">${window._issue?.[a.id] != null ? '✗ Issue found' : 'Issue found'}</button>
+          <label class="btn s photo">${a.photo_path ? '📷 New photo' : '📷 Add photo'}<input type="file" accept="image/*" capture="environment" hidden onchange="checkAlarmPhoto('${a.id}', this)"></label></div></td></tr>
+        ${window._issue?.[a.id] != null ? `<tr class="issrow"><td colspan="10"><label>What's wrong with the ${esc(a.location)} alarm? (shown on the report)<textarea oninput="window._issue['${a.id}']=this.value" placeholder="e.g. Didn't sound when tested, cover cracked, painted over">${esc(window._issue[a.id])}</textarea></label></td></tr>` : ''}`).join('')}</table>${SAM_CHECK_NOTE}`
       : '<p class="pill bad">No alarms recorded. Add the alarms on the property page before logging a check.</p>'}
-      ${p.bedrooms != null && p.storeys != null && p.alarms.length < +p.bedrooms + +p.storeys + 1 ? `<p class="pill warn">${p.alarms.length} alarm(s) on record. A ${p.bedrooms}-bedroom, ${p.storeys}-storey property usually needs at least ${+p.bedrooms + +p.storeys + 1}.</p>` : ''}
+      ${p.bedrooms != null && p.storeys != null && p.alarms.length < Math.max(1, +p.bedrooms + +p.storeys) ? `<p class="pill warn">${p.alarms.length} alarm(s) on record. A ${p.bedrooms}-bedroom, ${p.storeys}-storey property usually needs at least ${Math.max(1, +p.bedrooms + +p.storeys)}.</p>` : ''}
       <p><button type="button" class="btn s g" onclick="alarmForm(null, null, {done: refreshAlarmSummary})">Add an alarm</button></p></div>`;
+}
+function toggleIssue(id) {
+  if (window._issue[id] != null) delete window._issue[id]; else window._issue[id] = '';
+  redrawAlarmSummary(); setTimeout(() => document.querySelector(`tr[data-alarm="${id}"] + tr.issrow textarea`)?.focus(), 50);
+}
+async function checkAlarmPhoto(id, input) {
+  const f = input.files[0]; if (!f) return; toast('Uploading photo…');
+  const path = await uploadPhoto(f, `${window._p.id}/alarm-${id}-${Date.now()}.jpg`);
+  const {error} = await sb.from('alarms').update({photo_path: path}).eq('id', id); fail(error);
+  const al = window._p.alarms.find(a => a.id === id); if (al) al.photo_path = path; toast('Photo saved.'); redrawAlarmSummary();
 }
 function toggleCTC(id, b) {
   window._ctc.has(id) ? window._ctc.delete(id) : window._ctc.add(id);
@@ -804,10 +819,11 @@ const answersPath = p => p.replace(/\.pdf$/, '-answers.pdf');
 async function reportPdf(id, open = true, which = 'main') {
   const win = open ? window.open('', '_blank') : null; // open now so phones don't block the pop-up
   try {
-    const {data: x, error} = await sb.from('inspections').select('*, properties(street,suburb,state,postcode,owner_name,bedrooms,storeys)').eq('id', id).single(); fail(error);
+    const {data: x, error} = await sb.from('inspections').select('*, properties(street,suburb,state,postcode,owner_name,bedrooms,storeys,photo_path)').eq('id', id).single(); fail(error);
     if (x.pdf_path && open) { const {data: u} = await sb.storage.from('documents').createSignedUrl(which === 'answers' ? answersPath(x.pdf_path) : x.pdf_path, 600); win.location = u.signedUrl; return; }
     const {data: by} = await sb.rpc('inspection_report', {i: id}), JsPDF = await loadPdfLib();
-    let logo = null; if (by?.logo) try { logo = await imgData(logoUrl(by.logo)); } catch (e) {}
+    let logo = null, photo = null; if (by?.logo) try { logo = await imgData(logoUrl(by.logo)); } catch (e) {}
+    if (x.properties?.photo_path) try { const u = await photoUrls([x.properties.photo_path]); photo = await imgData(u[x.properties.photo_path]); } catch (e) {}
     const pr = x.properties, passed = x.assessment === 'Compliant', licensed = x.check_type === 'licensed', al = x.alarm_snapshot || [];
     const ans = Object.entries(x.answers || {}).filter(([k, v]) => v && v.question);
     const who = by?.public_name || by?.name || '', addrTxt = [pr.street, pr.suburb, pr.state, pr.postcode].filter(Boolean).join(', ');
@@ -815,7 +831,8 @@ async function reportPdf(id, open = true, which = 'main') {
     const flags = [...(est && al.length < est ? [`Only ${al.length} of an estimated ${est}–${est + 1} smoke alarms are recorded at this property.`] : []),
       ...al.filter(a => a.status?.status === 'bad').map(a => `${a.location}: ${a.status.bad.join(', ')}`),
       ...al.filter(a => a.status?.status === 'warn').map(a => `${a.location}: details missing (${a.status.missing.join(', ')})`),
-      ...al.filter(a => !a.checked_tested_cleaned).map(a => `${a.location}: not marked as checked, tested & cleaned`),
+      ...al.filter(a => a.issue != null).map(a => `${a.location}: ${a.issue || 'issue found'}`),
+      ...al.filter(a => !a.checked_tested_cleaned && a.issue == null).map(a => `${a.location}: not marked as checked, tested & cleaned`),
       ...ans.filter(([k, v]) => BAD_ANSWER[k] && v.answer === BAD_ANSWER[k]).map(([k, v]) => `${v.question} ${v.answer}`)];
     const NAVY = [16, 42, 67], ORANGE = [255, 107, 53], GREEN = [29, 120, 70], RED = [190, 40, 40], GREY = [110, 120, 135], W = 210, M = 16;
     const NOTES = {1: 'Queensland law: the owner or their agent must test and clean each alarm within 30 days before a tenancy starts or is renewed, and tenants at least once every 12 months, both in line with the manufacturer\'s instructions. A check is due sooner if a lease starts or is renewed first.',
@@ -833,11 +850,16 @@ async function reportPdf(id, open = true, which = 'main') {
         ['CHECKED BY', who + (by?.company && by.company !== who ? ', ' + by.company : '')], ...(licensed ? [['LICENCE NO.', by?.licence_no || '–']] : []),
         ...(pr.owner_name ? [['OWNER', pr.owner_name]] : [])];
       y += 6; const top = y; let yy = y + 7; doc.setLineWidth(0.2); doc.setDrawColor(220);
-      det.forEach(([k, v, fn], n) => { const col = n % 2, x0 = M + 5 + col * 89; if (col === 0 && n) yy += 11;
+      const phW = photo ? 58 : 0, colW = (W - M * 2 - phW) / 2;
+      let extra = 0; det.forEach(([k, v, fn], n) => { const col = n % 2, x0 = M + 5 + col * colW; if (col === 0 && n) { yy += 11 + extra; extra = 0; }
         doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...GREY); doc.text(k, x0, yy);
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(30); const t = doc.splitTextToSize(String(v), 82)[0]; doc.text(t, x0, yy + 4.5);
-        if (fn) { const tw = doc.getTextWidth(t); doc.setFontSize(6); doc.text(fn, x0 + tw + 0.6, yy + 3); } });
-      yy += 8; doc.roundedRect(M, top, W - M * 2, yy - top, 2, 2); y = yy + 8;
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(30); const ls = doc.splitTextToSize(String(v), colW - 7).slice(0, 2), t = ls[ls.length - 1]; doc.text(ls, x0, yy + 4.5); extra = Math.max(extra, (ls.length - 1) * 4);
+        if (fn) { const tw = doc.getTextWidth(t); doc.setFontSize(6); doc.text(fn, x0 + tw + 0.6, yy + 3); } }); yy += extra;
+      yy += 8; if (photo) { const bh = Math.max(yy - top, 40); yy = top + bh; const pw = phW - 8, ph = bh - 8, r = photo.w / photo.h;
+        let w = pw, h = pw / r; if (h < ph) { h = ph; w = ph * r; } // cover
+        doc.saveGraphicsState(); doc.roundedRect(W - M - phW + 4, top + 4, pw, ph, 2, 2, null); doc.clip(); doc.discardPath?.();
+        doc.addImage(photo.data, 'JPEG', W - M - phW + 4 + (pw - w) / 2, top + 4 + (ph - h) / 2, w, h); doc.restoreGraphicsState(); }
+      doc.roundedRect(M, top, W - M * 2, yy - top, 2, 2); y = yy + 8;
       const h2 = t => { y += 1.5; if (y > 262) { doc.addPage(); y = 20; } doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...NAVY); doc.text(t, M, y); doc.setDrawColor(220); doc.line(M, y + 2, W - M, y + 2); y += 7; };
       const para = (t, size = 9.5) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(size); doc.setTextColor(30); doc.splitTextToSize(t, W - M * 2).forEach(l => { if (y > 280) { doc.addPage(); y = 20; } doc.text(l, M, y); y += size * 0.45; }); y += 3; };
       const tick = (t, ok = true) => { doc.setFillColor(...(ok ? GREEN : RED)); doc.circle(M + 1.8, y - 1.2, 1.8, 'F'); doc.setDrawColor(255); doc.setLineWidth(0.45); if (ok) { doc.line(M + 0.9, y - 1.2, M + 1.6, y - 0.4); doc.line(M + 1.6, y - 0.4, M + 2.8, y - 2.1); } else { doc.line(M + 1.8, y - 2.4, M + 1.8, y - 1); doc.line(M + 1.8, y - 0.4, M + 1.8, y - 0.2); } doc.setLineWidth(0.2);
@@ -859,8 +881,8 @@ async function reportPdf(id, open = true, which = 'main') {
       d.doc.autoTable({startY: d.y - 3, margin: {left: M, right: M}, theme: 'plain', styles: {fontSize: 8.5, cellPadding: 1.8, textColor: 30}, headStyles: {textColor: GREY, fontSize: 7.5, fontStyle: 'bold'},
         head: [['LOCATION', 'TYPE', 'POWER SOURCE', 'EXPIRY', 'SAM CHECK', 'TESTED & CLEANED']],
         body: al.map(a => [a.location, a.alarm_type || '–', a.power_source || '–', a.expiry_date ? new Date(a.expiry_date + 'T00:00').toLocaleDateString('en-AU', {month: 'short', year: 'numeric'}) : '–',
-          a.status?.status === 'bad' ? 'Problem' : a.status?.status === 'warn' ? 'Details missing' : 'OK', a.checked_tested_cleaned ? 'Yes' : 'No']),
-        didParseCell: c => { if (c.section === 'body' && c.column.index === 4) c.cell.styles.textColor = c.cell.raw === 'OK' ? GREEN : RED; },
+          a.status?.status === 'bad' ? 'Problem' : a.status?.status === 'warn' ? 'Details missing' : 'OK', a.issue != null ? 'Issue found' : a.checked_tested_cleaned ? 'Yes' : 'No']),
+        didParseCell: c => { if (c.section === 'body' && c.column.index === 4) c.cell.styles.textColor = c.cell.raw === 'OK' ? GREEN : RED; if (c.section === 'body' && c.column.index === 5 && c.cell.raw === 'Issue found') c.cell.styles.textColor = RED; },
         didDrawCell: c => { if (c.section === 'head' && c.column.index === 4) { const dd = d.doc; dd.setFontSize(5.5); dd.setFont('helvetica', 'bold'); dd.setTextColor(...GREY); dd.text('2', c.cell.x + c.cell.padding('left') + dd.setFontSize(7.5).getTextWidth('SAM CHECK') + 0.5, c.cell.y + 2.6); }
           if (c.section === 'body' && c.column.index === 0) { d.doc.setDrawColor(235); d.doc.line(M, c.cell.y + c.cell.height, W - M, c.cell.y + c.cell.height); } }});
       d.y = d.doc.lastAutoTable.finalY + 9;
@@ -877,7 +899,7 @@ async function reportPdf(id, open = true, which = 'main') {
         if (x.inspector_override && x.notes) { d.doc.setFont('helvetica', 'bold'); d.doc.setFontSize(9.5); d.doc.text("Checker's explanation:", M, d.y); d.y += 5; d.para(x.notes); } }
       d.h2('Questions and answers');
       d.doc.autoTable({startY: d.y - 3, margin: {left: M, right: M}, theme: 'plain', styles: {fontSize: 9, cellPadding: 2.2, textColor: 30}, columnStyles: {1: {cellWidth: 28, halign: 'right', fontStyle: 'bold'}},
-        body: [...ans.map(([k, v]) => [v.question, v.answer || '–']), ...al.map(a => [`${a.location}: checked, tested & cleaned`, a.checked_tested_cleaned ? 'Yes' : 'No']),
+        body: [...ans.map(([k, v]) => [v.question, v.answer || '–']), ...al.map(a => [`${a.location}: checked, tested & cleaned`, a.checked_tested_cleaned ? 'Yes' : 'No']), ...al.filter(a => a.issue != null).map(a => [`${a.location}: issue found – ${a.issue}`, 'Issue']),
           ...(x.refresher_question ? [['Refresher question answered correctly', x.refresher_correct ? 'Yes' : 'No']] : []),
           [licensed ? "Electrician's assessment" : "Checker's assessment", x.assessment || '–'], ['I declare I carried out this check in person on the date above and the answers are true.', 'Agreed']],
         didDrawCell: c => { if (c.column.index === 0) { d.doc.setDrawColor(230); d.doc.line(M, c.cell.y + c.cell.height, W - M, c.cell.y + c.cell.height); } }});
