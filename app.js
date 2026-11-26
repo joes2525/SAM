@@ -274,7 +274,7 @@ async function properties() {
     const mine = scopePref() === 'mine', rows = props.filter(p => (!mine || p.assigned_to === me.id) && addr(p).toLowerCase().includes(q)).map(p => ({p, d: nextDue(p)}));
     $('#plist').innerHTML = !props.length ? '<p class="muted">No properties yet. Add one, or join your team from the Teams page.</p>'
       : !rows.length ? `<p class="muted">${mine && !q ? 'No properties are assigned to you. Click Whole team to see the rest of your team\'s properties.' : 'No properties match.'}</p>`
-      : (v === 'gallery' ? propGallery(pageOf(rows, 16), urls) : propTable(pageOf(rows, 50))) + pager(rows.length, v === 'gallery' ? 16 : 50);
+      : (v === 'gallery' ? propGallery(pageOf(rows, 20), urls) : propTable(pageOf(rows, 50))) + pager(rows.length, v === 'gallery' ? 20 : 50);
     document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('g', b.dataset.view !== v));
     document.querySelectorAll('[data-scope]').forEach(b => b.classList.toggle('g', b.dataset.scope !== scopePref())); };
   $('#main').innerHTML = `<div class="spread"><h1>Properties</h1><button class="btn o" onclick="propertyForm()">Add property</button></div>
