@@ -25,17 +25,30 @@ document.addEventListener('submit', e => {
 const ROLES = {property_manager:'Property manager', landlord:'Landlord / self-managing owner', electrician:'Electrician', tenant:'Tenant'};
 
 // ---------- photos ----------
+// Signed links last 7 days and are remembered, so the browser can reuse pictures it has already downloaded
+const URL_DAYS = 7;
+function urlCache(v) { try { if (v) localStorage.setItem('samUrls', JSON.stringify(v)); return JSON.parse(localStorage.getItem('samUrls') || '{}'); } catch (e) { return {}; } }
+async function signPaths(paths) {
+  const cache = urlCache(), now = Date.now(), out = {}, need = [];
+  paths.forEach(p => cache[p] && cache[p].exp > now + 864e5 ? out[p] = cache[p].url : need.push(p));
+  if (need.length) {
+    const {data} = await sb.storage.from('photos').createSignedUrls(need, URL_DAYS * 86400);
+    (data || []).forEach((x, i) => { if (x.signedUrl && !x.error) { out[need[i]] = x.signedUrl; cache[need[i]] = {url: x.signedUrl, exp: now + URL_DAYS * 864e5}; } });
+    for (const k in cache) if (cache[k].exp < now) delete cache[k];
+    urlCache(cache);
+  }
+  return out;
+}
 async function photoUrls(paths) {
   paths = [...new Set(paths.filter(Boolean))]; if (!paths.length) return {};
-  const {data} = await sb.storage.from('photos').createSignedUrls(paths, 3600);
-  return Object.fromEntries((data || []).filter(x => x.signedUrl).map(x => [x.path, x.signedUrl]));
+  return signPaths(paths);
 }
 // Small copies for the gallery. Older photos without one get a small copy made the first time they're shown.
 const thumbOf = p => p + '.thumb.jpg';
 async function thumbUrls(paths) {
   paths = [...new Set(paths.filter(Boolean))]; if (!paths.length) return {};
-  const {data} = await sb.storage.from('photos').createSignedUrls(paths.map(thumbOf), 3600), out = {};
-  (data || []).forEach((x, i) => { if (x.signedUrl && !x.error) out[paths[i]] = x.signedUrl; });
+  const t = await signPaths(paths.map(thumbOf)), out = {};
+  paths.forEach(p => { if (t[thumbOf(p)]) out[p] = t[thumbOf(p)]; });
   const missing = paths.filter(p => !out[p]);
   if (missing.length) {
     const full = await photoUrls(missing); Object.assign(out, full);
@@ -248,7 +261,7 @@ function propGallery(rows, urls) {
   }).join('')}</div>`;
 }
 async function properties() {
-  const props = await loadProperties(); const urls = await thumbUrls(props.map(p => p.photo_path));
+  const props = await loadProperties(); let urls = {};
   const draw = () => { const q = ($('#search')?.value || '').toLowerCase(), v = viewPref();
     const mine = scopePref() === 'mine', rows = props.filter(p => (!mine || p.assigned_to === me.id) && addr(p).toLowerCase().includes(q)).map(p => ({p, d: nextDue(p)}));
     $('#plist').innerHTML = !props.length ? '<p class="muted">No properties yet. Add one, or join your team from the Teams page.</p>'
@@ -263,7 +276,7 @@ async function properties() {
   $('#search').oninput = draw;
   document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { viewPref(b.dataset.view); draw(); });
   document.querySelectorAll('[data-scope]').forEach(b => b.onclick = () => { scopePref(b.dataset.scope); draw(); });
-  draw();
+  draw(); urls = await thumbUrls(props.map(p => p.photo_path)); if ($('#plist')) draw();
 }
 async function propertyForm(p = {}) {
   const teams = await myTeams();
