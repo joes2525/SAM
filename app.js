@@ -183,7 +183,7 @@ async function newPassword() {
 function navItems() {
   const n = [['home', 'Home'], ['properties', 'Properties'], ['myhome', 'My home'], ['lookup', 'Look up']];
   if (me.role !== 'electrician') n.push(['course', 'SAM Academy']);
-  return n.concat([['help', 'Help'], ['profile', 'Profile']]);
+  return n.concat([['profile', 'Profile'], ['help', 'Help']]);
 }
 let viewingSite = false; // logged-in user looking at the public website
 window.onhashchange = () => (me && !viewingSite) ? route() : showPublic();
