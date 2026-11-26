@@ -355,9 +355,9 @@ async function property(id) {
       <td><button class="btn s g" onclick="tenantForm('${t.id}')">Edit</button></td></tr>`).join('')}</table>` : '<p class="muted">No tenants added.</p>'}
 
     <h2>Check history</h2>
-    ${p.inspections.length ? `<table><tr><th>Date</th><th>Result</th><th>By</th><th>Notes</th><th>Report</th></tr>${p.inspections.map(i => `<tr>
+    ${p.inspections.length ? `<table><tr><th>Date</th><th>Result</th><th>By</th><th>Notes</th><th>PDFs</th></tr>${p.inspections.map(i => `<tr>
       <td>${fmt(i.inspection_date)}</td><td><span class="pill ${i.assessment === 'Compliant' ? 'ok' : 'bad'}">${esc(i.assessment)}</span>${i.inspector_override ? ' <span class="small muted">(override)</span>' : ''}</td>
-      <td>${esc(i.profiles?.name || '')}<div class="small muted">${i.check_type === 'licensed' ? 'Electrician' : 'Manager check'}</div></td><td class="small pre">${esc(i.notes || '')}</td><td><button class="btn s g" onclick="reportPdf('${i.id}')">${i.pdf_path ? 'PDF' : 'Make PDF'}</button></td></tr>`).join('')}</table>` : '<p class="muted">No checks recorded yet.</p>'}
+      <td>${esc(i.profiles?.name || '')}<div class="small muted">${i.check_type === 'licensed' ? 'Electrician' : 'Manager check'}</div></td><td class="small pre">${esc(i.notes || '')}</td><td><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn s g" onclick="reportPdf('${i.id}')">${i.assessment === 'Compliant' ? 'Certificate' : 'Report'}</button><button class="btn s g" onclick="reportPdf('${i.id}', true, 'answers')">Answers</button></div></td></tr>`).join('')}</table>` : '<p class="muted">No checks recorded yet.</p>'}
     ${(await myTeams()).some(t => t.id === p.team_id && t.role === 'leader') || (!p.team_id && p.user_id === me.id) ? '<p style="margin-top:30px"><button class="btn s r" onclick="deleteProperty()">Delete property</button></p>' : ''}`;
 }
 async function propertyPhoto(input) {
@@ -797,67 +797,90 @@ async function imgData(url) {
   return {data: c.toDataURL('image/jpeg', .9), w: bmp.width, h: bmp.height};
 }
 const BAD_ANSWER = {q3: 'No', q4: 'Yes', c1: 'No', c5: 'No', c7: 'No'};
-async function reportPdf(id, open = true) {
+const CONFIRM = {q3: "The manufacturer's recommendations for these alarms were read", q4: 'No alarm is damaged, painted over, covered or blocked',
+  c1: 'Smoke alarms are installed in all required locations (each storey, each bedroom, hallways connecting bedrooms to the rest of the home, or the exit path on storeys without bedrooms)',
+  c5: 'Replaceable batteries more than 6 months old were replaced and dated', c7: 'Each alarm sounded when its test button was pressed, and all the other alarms sounded at the same time (interconnected)'};
+const answersPath = p => p.replace(/\.pdf$/, '-answers.pdf');
+async function reportPdf(id, open = true, which = 'main') {
   const win = open ? window.open('', '_blank') : null; // open now so phones don't block the pop-up
   try {
-    const {data: x, error} = await sb.from('inspections').select('*, properties(street,suburb,state,postcode,owner_name)').eq('id', id).single(); fail(error);
-    if (x.pdf_path && open) { const {data: u} = await sb.storage.from('documents').createSignedUrl(x.pdf_path, 600); win.location = u.signedUrl; return; }
-    const {data: by} = await sb.rpc('inspection_report', {i: id});
-    const JsPDF = await loadPdfLib(), doc = new JsPDF({unit: 'mm', format: 'a4'}), W = 210, M = 16;
-    const pr = x.properties, passed = x.assessment === 'Compliant', licensed = x.check_type === 'licensed';
-    const title = licensed ? (passed ? 'Smoke Alarm Compliance Certificate' : 'Smoke Alarm Non-compliance Notice') : 'Smoke Alarm Check Report';
-    const NAVY = [16, 42, 67], ORANGE = [255, 107, 53], GREEN = [29, 107, 63], RED = [155, 28, 28];
-    // header
-    doc.setFillColor(...NAVY); doc.rect(0, 0, W, 30, 'F');
-    doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text('SAM', M, 13);
-    doc.setTextColor(...ORANGE); doc.text('Register', M + 16, 13);
-    doc.setTextColor(255); doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.text('Smoke alarm records for Queensland properties', M, 20);
-    if (by?.logo) { try { const im = await imgData(logoUrl(by.logo)), h = 18, w = Math.min(50, h * im.w / im.h); doc.setFillColor(255); doc.roundedRect(W - M - w - 2, 6, w + 4, h, 2, 2, 'F'); doc.addImage(im.data, 'JPEG', W - M - w, 6, w, h); } catch (e) {} }
-    // title + result
-    let y = 44; doc.setTextColor(...NAVY); doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.text(title, M, y);
-    doc.setFillColor(...(passed ? GREEN : RED)); doc.roundedRect(W - M - 40, y - 7, 40, 10, 3, 3, 'F');
-    doc.setTextColor(255); doc.setFontSize(11); doc.text(passed ? 'PASSED' : 'ISSUES FOUND', W - M - 20, y - 0.5, {align: 'center'});
-    // details
-    y += 10; doc.setFontSize(10);
-    const row = (k, v) => { doc.setFont('helvetica', 'bold'); doc.setTextColor(90); doc.text(k, M, y); doc.setFont('helvetica', 'normal'); doc.setTextColor(20); doc.text(doc.splitTextToSize(String(v || '–'), W - M * 2 - 40), M + 40, y); y += 6.5; };
-    row('Property', [pr.street, pr.suburb, pr.state, pr.postcode].filter(Boolean).join(', '));
-    if (pr.owner_name) row('Owner', pr.owner_name);
-    row('Date of check', fmtD(x.inspection_date));
-    row('Checked by', [by?.public_name || by?.name, by?.company && by.company !== by?.public_name ? by.company : ''].filter(Boolean).join(', '));
-    if (licensed && by?.licence_no) row('Licence number', by.licence_no);
-    row('Type of check', licensed ? 'Licensed electrician' : 'Property manager check' + (by?.trained ? ' (SAM Academy trained)' : ''));
-    // alarms
-    const al = x.alarm_snapshot || [];
-    doc.autoTable({startY: y + 3, margin: {left: M, right: M}, styles: {fontSize: 8.5, cellPadding: 2}, headStyles: {fillColor: NAVY},
-      head: [['Location', 'Type', 'Power', 'Interconnected', 'Expires', 'SAM Check', 'Tested & cleaned']],
-      body: al.map(a => [a.location, a.alarm_type || '–', a.power_source || '–', a.interconnected || '–', a.expiry_date ? fmtD(a.expiry_date) : '–',
-        a.status?.status === 'bad' ? 'Problem: ' + a.status.bad.join(', ') : a.status?.status === 'warn' ? 'Missing: ' + a.status.missing.join(', ') : 'OK', a.checked_tested_cleaned ? 'Yes' : 'No'])});
-    y = doc.lastAutoTable.finalY + 8;
-    // questions
+    const {data: x, error} = await sb.from('inspections').select('*, properties(street,suburb,state,postcode,owner_name,bedrooms,storeys)').eq('id', id).single(); fail(error);
+    if (x.pdf_path && open) { const {data: u} = await sb.storage.from('documents').createSignedUrl(which === 'answers' ? answersPath(x.pdf_path) : x.pdf_path, 600); win.location = u.signedUrl; return; }
+    const {data: by} = await sb.rpc('inspection_report', {i: id}), JsPDF = await loadPdfLib();
+    let logo = null; if (by?.logo) try { logo = await imgData(logoUrl(by.logo)); } catch (e) {}
+    const pr = x.properties, passed = x.assessment === 'Compliant', licensed = x.check_type === 'licensed', al = x.alarm_snapshot || [];
     const ans = Object.entries(x.answers || {}).filter(([k, v]) => v && v.question);
-    if (ans.length) doc.autoTable({startY: y, margin: {left: M, right: M}, styles: {fontSize: 8.5, cellPadding: 2}, headStyles: {fillColor: NAVY},
-      head: [['Check', 'Answer']], columnStyles: {1: {cellWidth: 24}}, body: ans.map(([k, v]) => [v.question, v.answer || '–'])});
-    y = (ans.length ? doc.lastAutoTable.finalY : y) + 8;
-    // issues
-    const issues = [...al.filter(a => a.status?.status === 'bad').map(a => `${a.location}: ${a.status.bad.join(', ')}`),
-      ...al.filter(a => a.status?.soon).map(a => `${a.location}: expires ${fmtD(a.expiry_date)}`),
-      ...ans.filter(([k, v]) => BAD_ANSWER[k] && v.answer === BAD_ANSWER[k]).map(([k, v]) => `${v.question} – ${v.answer}`)];
-    const block = (head, lines) => { if (!lines.length) return; if (y > 250) { doc.addPage(); y = 20; }
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...NAVY); doc.text(head, M, y); y += 6;
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(20);
-      lines.forEach(l => { const t = doc.splitTextToSize(l, W - M * 2 - 4); if (y + t.length * 5 > 280) { doc.addPage(); y = 20; } doc.text(t, M + 2, y); y += t.length * 5 + 1; }); y += 4; };
-    block(passed ? 'Things to note' : 'Issues to fix', issues.map(s => '• ' + s));
-    block('Notes', x.notes ? [x.notes] : []);
-    // footer
-    const n = doc.getNumberOfPages();
-    for (let p = 1; p <= n; p++) { doc.setPage(p); doc.setFontSize(7.5); doc.setTextColor(120);
-      const foot = (licensed ? '' : 'This report records a visual check and test of the smoke alarms by the person named above. It is not an electrical inspection or a certificate of compliance. Only a licensed electrician can install, remove or replace hardwired smoke alarms. ')
-        + `Made with SAM Register on ${fmtD(today())}. Report ${id.slice(0, 8).toUpperCase()}. Page ${p} of ${n}.`;
-      doc.text(doc.splitTextToSize(foot, W - M * 2), M, 287 - (licensed ? 0 : 6)); }
-    // save to Supabase
-    const blob = doc.output('blob'), path = `${x.property_id}/reports/${x.inspection_date}-${id.slice(0, 8)}.pdf`;
-    const {error: ue} = await sb.storage.from('documents').upload(path, blob, {upsert: true, contentType: 'application/pdf'}); fail(ue);
+    const who = by?.public_name || by?.name || '', addrTxt = [pr.street, pr.suburb, pr.state, pr.postcode].filter(Boolean).join(', ');
+    const recNo = 'SAM-' + id.slice(0, 6).toUpperCase(), est = pr.bedrooms != null && pr.storeys != null ? Math.max(1, +pr.bedrooms + +pr.storeys) : null;
+    const flags = [...(est && al.length < est ? [`Only ${al.length} of an estimated ${est}–${est + 1} smoke alarms are recorded at this property.`] : []),
+      ...al.filter(a => a.status?.status === 'bad').map(a => `${a.location}: ${a.status.bad.join(', ')}`),
+      ...al.filter(a => a.status?.status === 'warn').map(a => `${a.location}: details missing (${a.status.missing.join(', ')})`),
+      ...al.filter(a => !a.checked_tested_cleaned).map(a => `${a.location}: not marked as checked, tested & cleaned`),
+      ...ans.filter(([k, v]) => BAD_ANSWER[k] && v.answer === BAD_ANSWER[k]).map(([k, v]) => `${v.question} ${v.answer}`)];
+    const NAVY = [16, 42, 67], ORANGE = [255, 107, 53], GREEN = [29, 120, 70], RED = [190, 40, 40], GREY = [110, 120, 135], W = 210, M = 16;
+    const make = (title, body) => {
+      const doc = new JsPDF({unit: 'mm', format: 'a4'}); let y = 18;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(...NAVY); doc.text('SAM', M, y); doc.setTextColor(...ORANGE); doc.text('Register', M + doc.getTextWidth('SAM '), y);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...GREY); doc.text('Smoke alarm records for Queensland properties', M, y + 5);
+      doc.setTextColor(...ORANGE); doc.setFont('helvetica', 'bold'); doc.text('joes2525.github.io/SAM', W - M, y + 5, {align: 'right'});
+      if (logo) { const h = 14, w = Math.min(45, h * logo.w / logo.h); doc.addImage(logo.data, 'JPEG', W - M - w, y - 12, w, h); }
+      doc.setDrawColor(...ORANGE); doc.setLineWidth(0.8); doc.line(M, y + 9, W - M, y + 9);
+      y += 20; doc.setTextColor(...NAVY); doc.setFontSize(17); doc.text(title, M, y);
+      // details box
+      const det = [['RECORD NO.', recNo], ['PROPERTY ADDRESS', addrTxt], ['CHECK DATE', fmtD(x.inspection_date)], ['NEXT CHECK DUE', fmtD(addMonths(x.inspection_date, 12)) + ' (or within 30 days before a new lease)'],
+        ['CHECKED BY', who + (by?.company && by.company !== who ? ', ' + by.company : '')], [licensed ? 'LICENCE NO.' : 'CHECK TYPE', licensed ? (by?.licence_no || '–') : 'Property manager check' + (by?.trained ? ' · SAM Academy trained' : '')],
+        ...(pr.owner_name ? [['OWNER', pr.owner_name]] : [])];
+      y += 6; const top = y; let yy = y + 7; doc.setLineWidth(0.2); doc.setDrawColor(220);
+      det.forEach(([k, v], n) => { const col = n % 2, x0 = M + 5 + col * 89; if (col === 0 && n) yy += 11;
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...GREY); doc.text(k, x0, yy);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(30); doc.text(doc.splitTextToSize(String(v), 82)[0], x0, yy + 4.5); });
+      yy += 8; doc.roundedRect(M, top, W - M * 2, yy - top, 2, 2); y = yy + 8;
+      const h2 = t => { y += 3; if (y > 262) { doc.addPage(); y = 20; } doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.setTextColor(...NAVY); doc.text(t, M, y); doc.setDrawColor(220); doc.line(M, y + 2, W - M, y + 2); y += 8; };
+      const para = (t, size = 9.5) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(size); doc.setTextColor(30); doc.splitTextToSize(t, W - M * 2).forEach(l => { if (y > 280) { doc.addPage(); y = 20; } doc.text(l, M, y); y += size * 0.45; }); y += 3; };
+      const tick = (t, ok = true) => { doc.setFillColor(...(ok ? GREEN : RED)); doc.circle(M + 1.8, y - 1.2, 1.8, 'F'); doc.setDrawColor(255); doc.setLineWidth(0.45); if (ok) { doc.line(M + 0.9, y - 1.2, M + 1.6, y - 0.4); doc.line(M + 1.6, y - 0.4, M + 2.8, y - 2.1); } else { doc.line(M + 1.8, y - 2.4, M + 1.8, y - 1); doc.line(M + 1.8, y - 0.4, M + 1.8, y - 0.2); } doc.setLineWidth(0.2);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(30); const ls = doc.splitTextToSize(t, W - M * 2 - 7); ls.forEach((l, n) => { if (y > 280) { doc.addPage(); y = 20; } doc.text(l, M + 6, y); y += 4.3; }); y += 1.5; };
+      const pill = (t, ok) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); const w = doc.getTextWidth(t) + 8; doc.setFillColor(...(ok ? GREEN : RED)); doc.roundedRect(M, y - 5, w, 7.5, 3.7, 3.7, 'F'); doc.setTextColor(255); doc.text(t, M + 4, y); y += 8; };
+      body({doc, h2, para, tick, pill, get y() { return y; }, set y(v) { y = v; }});
+      const n = doc.getNumberOfPages();
+      for (let p = 1; p <= n; p++) { doc.setPage(p); doc.setFontSize(7.5); doc.setTextColor(140); doc.setFont('helvetica', 'normal');
+        const foot = (licensed ? '' : 'SAM Register records the results provided by the person who carried out the check: a visual check and test of the smoke alarms. It is not an electrical inspection. Only a licensed electrician can install, remove or replace hardwired smoke alarms. ')
+          + 'Smoke alarm checks are due every 12 months and within 30 days before a new lease starts.';
+        doc.text(doc.splitTextToSize(foot, W - M * 2), M, 282); doc.text(`${recNo} · Page ${p} of ${n}`, W - M, 292, {align: 'right'}); }
+      return doc.output('blob');
+    };
+    const main = make(passed ? 'Compliance Certificate' : 'Non-Compliance Report', d => {
+      d.h2('Smoke alarms at this property');
+      d.doc.autoTable({startY: d.y - 3, margin: {left: M, right: M}, theme: 'plain', styles: {fontSize: 8.5, cellPadding: 1.8, textColor: 30}, headStyles: {textColor: GREY, fontSize: 7.5, fontStyle: 'bold'},
+        head: [['LOCATION', 'TYPE', 'POWER SOURCE', 'EXPIRY', 'SAM CHECK', 'TESTED & CLEANED']],
+        body: al.map(a => [a.location, a.alarm_type || '–', a.power_source || '–', a.expiry_date ? new Date(a.expiry_date + 'T00:00').toLocaleDateString('en-AU', {month: 'short', year: 'numeric'}) : '–',
+          a.status?.status === 'bad' ? 'Problem' : a.status?.status === 'warn' ? 'Details missing' : 'OK', a.checked_tested_cleaned ? 'Yes' : 'No']),
+        didParseCell: c => { if (c.section === 'body' && c.column.index === 4) c.cell.styles.textColor = c.cell.raw === 'OK' ? GREEN : RED; },
+        didDrawCell: c => { if (c.section === 'body' && c.column.index === 0) { d.doc.setDrawColor(235); d.doc.line(M, c.cell.y + c.cell.height, W - M, c.cell.y + c.cell.height); } }});
+      d.y = d.doc.lastAutoTable.finalY + 9;
+      d.h2(licensed ? "Electrician's assessment" : "Checker's assessment"); d.pill(passed ? 'Compliant' : 'Not compliant', passed);
+      if (!passed && flags.length) { d.h2('Issues to fix'); flags.forEach(f => d.tick(f, false)); }
+      if (x.notes) { d.h2('Notes'); d.para(x.notes); }
+      const ok = ans.filter(([k, v]) => BAD_ANSWER[k] && v.answer !== BAD_ANSWER[k] && CONFIRM[k]).map(([k]) => CONFIRM[k]);
+      if (al.length && al.every(a => a.checked_tested_cleaned)) ok.push('Every alarm was checked, tested and cleaned');
+      if (ok.length) { d.h2('The checker confirms the following'); ok.forEach(t => d.tick(t)); }
+      d.h2('Declaration');
+      d.para(`I confirm that I carried out this check in person on the date above and that the information provided is accurate to the best of my knowledge. I acknowledge that this record will form part of the property's maintenance history and may be shared with and relied on by the property owner, agent or insurer. Signed electronically by ${who} on ${fmtD(x.inspection_date)}.`);
+    });
+    const answersDoc = make('Inspection Answers', d => {
+      if (flags.length) { d.h2(x.inspector_override ? 'Automatic checks flagged the following – checker confirmed compliance' : 'Automatic checks flagged the following'); flags.forEach(f => d.tick(f, false));
+        if (x.inspector_override && x.notes) { d.doc.setFont('helvetica', 'bold'); d.doc.setFontSize(9.5); d.doc.text("Checker's explanation:", M, d.y); d.y += 5; d.para(x.notes); } }
+      d.h2('Questions and answers');
+      d.doc.autoTable({startY: d.y - 3, margin: {left: M, right: M}, theme: 'plain', styles: {fontSize: 9, cellPadding: 2.2, textColor: 30}, columnStyles: {1: {cellWidth: 28, halign: 'right', fontStyle: 'bold'}},
+        body: [...ans.map(([k, v]) => [v.question, v.answer || '–']), ...al.map(a => [`${a.location}: checked, tested & cleaned`, a.checked_tested_cleaned ? 'Yes' : 'No']),
+          ...(x.refresher_question ? [['Refresher question answered correctly', x.refresher_correct ? 'Yes' : 'No']] : []),
+          [licensed ? "Electrician's assessment" : "Checker's assessment", x.assessment || '–'], ['I declare I carried out this check in person on the date above and the answers are true.', 'Agreed']],
+        didDrawCell: c => { if (c.column.index === 0) { d.doc.setDrawColor(230); d.doc.line(M, c.cell.y + c.cell.height, W - M, c.cell.y + c.cell.height); } }});
+      d.y = d.doc.lastAutoTable.finalY + 9;
+      if (x.notes) { d.h2('Notes'); d.para(x.notes); }
+    });
+    const path = `${x.property_id}/reports/${x.inspection_date}-${id.slice(0, 8)}.pdf`;
+    for (const [p, b] of [[path, main], [answersPath(path), answersDoc]]) { const {error: ue} = await sb.storage.from('documents').upload(p, b, {upsert: true, contentType: 'application/pdf'}); fail(ue); }
     const {error: se} = await sb.rpc('set_report_pdf', {i: id, path}); fail(se);
-    if (win) { const {data: u} = await sb.storage.from('documents').createSignedUrl(path, 600); win.location = u.signedUrl; route(); }
+    if (win) { const {data: u} = await sb.storage.from('documents').createSignedUrl(which === 'answers' ? answersPath(path) : path, 600); win.location = u.signedUrl; route(); }
   } catch (e) { if (win) win.close(); throw e; }
 }
